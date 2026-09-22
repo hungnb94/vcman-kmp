@@ -10,18 +10,29 @@ data class QuestionScoreResult(
     val label: String,
     val weight: Double,
     val rawScore: Double,
-    val weightedScore: Double,
     val comment: String,
     val sourceUrl: String? = null,
-)
+) {
+    val weightedScore: Double
+        get() = rawScore * weight
+
+    val maxPoints: Double
+        get() = weight * MAX_RAW_SCORE
+
+    companion object {
+        const val MAX_RAW_SCORE: Double = 10.0
+    }
+}
 
 data class ScoreSectionResult(
     val name: String,
-    val maxPoints: Double,
     val questions: List<QuestionScoreResult>,
 ) {
     val total: Double
         get() = questions.sumOf { it.weightedScore }
+
+    val maxPoints: Double
+        get() = questions.sumOf { it.maxPoints }
 }
 
 data class ProjectScoreReport(
@@ -29,7 +40,11 @@ data class ProjectScoreReport(
     val rubricTitle: String,
     val overallSummary: String,
     val sections: List<ScoreSectionResult>,
-    val grandTotal: Double,
-    val grandMax: Double,
     val generatedAtEpochMillis: Long,
-)
+) {
+    val grandTotal: Double
+        get() = sections.sumOf { it.total }
+
+    val grandMax: Double
+        get() = sections.sumOf { it.maxPoints }
+}
