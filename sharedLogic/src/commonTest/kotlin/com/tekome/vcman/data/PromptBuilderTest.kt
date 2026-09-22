@@ -168,6 +168,21 @@ class PromptBuilderTest {
     }
 
     @Test
+    fun buildUserPrompt_multilineSubjectQueryPreservesCleanIndentation() {
+        val multilineQuery = "Stripe Inc.\nFintech payments company\nSeries I"
+        val userPrompt = PromptBuilder.buildUserPrompt(multilineQuery)
+
+        assertFalse(
+            userPrompt.startsWith(" "),
+            "User prompt must not have leading indentation when query is multiline",
+        )
+        assertTrue(
+            userPrompt.contains("<subject_query>\n$multilineQuery\n</subject_query>"),
+            "User prompt must embed multiline query cleanly inside tag",
+        )
+    }
+
+    @Test
     fun promptBuilder_pureFunctionsAreDeterministicAndStateless() {
         val rubric = RubricInput(title = "Determinism Rubric", text = "Fixed rubric text")
         val subject = "Acme Robotics"

@@ -26,13 +26,10 @@ internal object DefaultPromptBuilder : PromptBuilder {
 
     override fun buildUserPrompt(subjectQuery: String): String {
         val cleanQuery = subjectQuery.trim()
-        return """
-            Please analyze and score the following subject according to the evaluation rubric.
-
-            <subject_query>
-            $cleanQuery
-            </subject_query>
-            """.trimIndent()
+        return listOf(
+            "Please analyze and score the following subject according to the evaluation rubric.",
+            "<subject_query>\n$cleanQuery\n</subject_query>",
+        ).joinToString("\n\n")
     }
 }
 
