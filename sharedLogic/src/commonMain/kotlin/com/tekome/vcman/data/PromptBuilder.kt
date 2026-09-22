@@ -40,7 +40,8 @@ private const val BASE_SYSTEM_INSTRUCTIONS: String = """You are an expert ventur
 Analyze the target subject strictly according to the evaluation rubric provided below.
 Dynamically infer all sections, questions, and weights directly from the rubric text.
 Do not assume or enforce any hardcoded question list.
-Score each question with a rawScore from 0.0 to 10.0 (where 0.0 is completely inadequate and 10.0 is exceptional)."""
+Score each question with a rawScore from 0.0 to 10.0 (where 0.0 is completely inadequate and 10.0 is exceptional).
+Provide a credible citation link in "sourceUrl" if evidence/data was referenced, or null if no direct URL is available."""
 
 private const val AMBIGUITY_POLICY: String = """<ambiguity_policy>
 AMBIGUOUS SUBJECT / TICKER COLLISION RULE:

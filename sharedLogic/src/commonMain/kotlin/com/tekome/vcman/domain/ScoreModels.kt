@@ -15,6 +15,13 @@ data class QuestionScoreResult(
 ) {
     val weightedScore: Double
         get() = rawScore * weight
+
+    val maxPoints: Double
+        get() = weight * MAX_RAW_SCORE
+
+    companion object {
+        const val MAX_RAW_SCORE: Double = 10.0
+    }
 }
 
 data class ScoreSectionResult(
@@ -25,11 +32,7 @@ data class ScoreSectionResult(
         get() = questions.sumOf { it.weightedScore }
 
     val maxPoints: Double
-        get() = questions.sumOf { it.weight * MAX_RAW_SCORE }
-
-    companion object {
-        const val MAX_RAW_SCORE: Double = 10.0
-    }
+        get() = questions.sumOf { it.maxPoints }
 }
 
 data class ProjectScoreReport(

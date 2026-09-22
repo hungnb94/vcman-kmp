@@ -88,6 +88,10 @@ class PromptBuilderTest {
             prompt.contains("Score each question with a rawScore from 0.0 to 10.0"),
             "System prompt must instruct model to use standard 0.0 to 10.0 scale for rawScore",
         )
+        assertTrue(
+            prompt.contains("Provide a credible citation link in \"sourceUrl\" if evidence/data was referenced, or null"),
+            "System prompt must instruct model regarding citation in sourceUrl",
+        )
     }
 
     @Test

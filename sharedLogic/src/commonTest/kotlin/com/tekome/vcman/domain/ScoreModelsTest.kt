@@ -31,6 +31,7 @@ class ScoreModelsTest {
         assertEquals(1.5, question.weight)
         assertEquals(8.0, question.rawScore)
         assertEquals(12.0, question.weightedScore)
+        assertEquals(15.0, question.maxPoints)
         assertEquals("Strong TAM analysis", question.comment)
         assertNull(question.sourceUrl)
     }
@@ -48,10 +49,11 @@ class ScoreModelsTest {
             )
         assertEquals("https://linkedin.com/in/founder", question.sourceUrl)
         assertEquals(18.0, question.weightedScore)
+        assertEquals(20.0, question.maxPoints)
     }
 
     @Test
-    fun questionScoreResult_calculatesWeightedScoreAutomaticallyAndHandlesZero() {
+    fun questionScoreResult_calculatesWeightedScoreAndMaxPointsAutomaticallyAndHandlesZero() {
         val zeroScore =
             QuestionScoreResult(
                 id = "q_zero_score",
@@ -61,6 +63,7 @@ class ScoreModelsTest {
                 comment = "Unsatisfactory",
             )
         assertEquals(0.0, zeroScore.weightedScore)
+        assertEquals(15.0, zeroScore.maxPoints)
 
         val zeroWeight =
             QuestionScoreResult(
@@ -71,10 +74,11 @@ class ScoreModelsTest {
                 comment = "Informational only",
             )
         assertEquals(0.0, zeroWeight.weightedScore)
+        assertEquals(0.0, zeroWeight.maxPoints)
     }
 
     @Test
-    fun questionScoreResult_copy_preservesDynamicWeightedScoreComputation() {
+    fun questionScoreResult_copy_preservesDynamicWeightedScoreAndMaxPointsComputation() {
         val original =
             QuestionScoreResult(
                 id = "q_dyn",
@@ -84,12 +88,15 @@ class ScoreModelsTest {
                 comment = "Initial estimate",
             )
         assertEquals(12.0, original.weightedScore)
+        assertEquals(15.0, original.maxPoints)
 
         val updatedScore = original.copy(rawScore = 6.0)
         assertEquals(9.0, updatedScore.weightedScore)
+        assertEquals(15.0, updatedScore.maxPoints)
 
         val updatedWeight = original.copy(weight = 2.0)
         assertEquals(16.0, updatedWeight.weightedScore)
+        assertEquals(20.0, updatedWeight.maxPoints)
     }
 
     @Test
