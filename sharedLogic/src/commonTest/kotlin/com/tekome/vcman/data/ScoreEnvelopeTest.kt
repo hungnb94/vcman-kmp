@@ -126,4 +126,81 @@ class ScoreEnvelopeTest {
 
         assertIs<AnalysisError.InvalidResponse>(exception.error)
     }
+
+    @Test
+    fun decodeScoreReport_preamblePostambleWithBracesOutsideCodeFence() {
+        val raw = "Preamble {not JSON} here\n$validEnvelope\nPostamble {also not JSON}"
+
+        val report = decodeScoreReport(raw, rubricTitle = "Rubric", generatedAtEpochMillis = 0L)
+
+        assertEquals("Acme Inc", report.subjectName)
+    }
+
+    @Test
+    fun decodeScoreReport_codeFenceWithPreamblePostambleContainingBraces() {
+        val raw = "```json\n{ \"ignored\": { \"nested\": \"object\" } }\n$validEnvelope\n```"
+
+        val report = decodeScoreReport(raw, rubricTitle = "Rubric", generatedAtEpochMillis = 0L)
+
+        assertEquals("Acme Inc", report.subjectName)
+    }
+
+    @Test
+    fun decodeScoreReport_jsonWithEscapedQuotesAndBracesInStringValues() {
+        val raw =
+            """
+            {
+              "subjectName": "Test",
+              "overallSummary": "Summary",
+              "sections": [
+                {
+                  "name": "S",
+                  "questions": [
+                    {
+                      "id": "q1",
+                      "label": "L",
+                      "weight": 1.0,
+                      "rawScore": 5.0,
+                      "comment": "Value with \"escaped quotes\" and {braces} inside",
+                      "sourceUrl": null
+                    }
+                  ]
+                }
+              ]
+            }
+            """.trimIndent()
+
+        val report = decodeScoreReport(raw, rubricTitle = "Rubric", generatedAtEpochMillis = 0L)
+
+        assertEquals("Test", report.subjectName)
+        assertEquals(
+            "Value with \"escaped quotes\" and {braces} inside",
+            report.sections
+                .single()
+                .questions
+                .single()
+                .comment,
+        )
+    }
+
+    @Test
+    fun decodeScoreReport_multipleJsonCandidatesPicksLargest() {
+        val raw = "Small {}\n$validEnvelope\nExtra { small: 1 }"
+
+        val report = decodeScoreReport(raw, rubricTitle = "Rubric", generatedAtEpochMillis = 0L)
+
+        assertEquals("Acme Inc", report.subjectName)
+    }
+
+    @Test
+    fun decodeScoreReport_emptyObjectBecomesInvalidResponse() {
+        val raw = "{}"
+
+        val exception =
+            assertFailsWith<AnalysisException> {
+                decodeScoreReport(raw, rubricTitle = "Rubric", generatedAtEpochMillis = 0L)
+            }
+
+        assertIs<AnalysisError.InvalidResponse>(exception.error)
+    }
 }

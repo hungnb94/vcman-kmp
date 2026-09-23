@@ -116,6 +116,28 @@ class AnalysisErrorTest {
         assertEquals(AnalysisError.ApiError(500).toString(), exception.message)
         assertTrue(secretMessage !in (exception.message ?: ""))
     }
+
+    @Test
+    fun classify_wrappedAnalysisExceptionUnwrapsToOriginalError() {
+        val originalError = AnalysisError.AmbiguousSubject("Ambiguous: X Inc vs X Corp")
+        val analysisException = AnalysisException(originalError)
+        val wrapped = IllegalStateException("agent framework wrapper", analysisException)
+
+        assertEquals(originalError, classify(wrapped))
+    }
+
+    @Test
+    fun runAnalysis_passesThroughAnalysisExceptionUnchanged() =
+        runTest {
+            val originalError = AnalysisError.InvalidResponse("bad json")
+            val originalException = AnalysisException(originalError)
+
+            val result = runAnalysis { throw originalException }
+
+            val exception = assertIs<AnalysisException>(result.exceptionOrNull())
+            assertEquals(originalError, exception.error)
+            assertEquals(originalException, exception)
+        }
 }
 
 /** A `Throwable` whose `cause` is resolved lazily, so tests can build a genuine cyclic cause chain. */

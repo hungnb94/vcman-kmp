@@ -91,11 +91,68 @@ internal fun decodeScoreReport(
     )
 }
 
-/** LLMs sometimes wrap the JSON object in a code fence or add prose around it despite the prompt. */
+private val CODE_FENCE_REGEX = Regex("""```(?:json)?\s*([\s\S]*?)\s*```""", RegexOption.IGNORE_CASE)
+
+private fun findBalancedBraceCandidates(text: String): List<String> {
+    val candidates = mutableListOf<String>()
+    var i = 0
+    while (i < text.length) {
+        if (text[i] == '{') {
+            val start = i
+            var depth = 1
+            var inString = false
+            i++
+            while (i < text.length && depth > 0) {
+                val c = text[i]
+                if (inString) {
+                    if (c == '\\') {
+                        i += 2
+                        continue
+                    } else if (c == '"') {
+                        inString = false
+                    }
+                } else {
+                    when (c) {
+                        '"' -> inString = true
+                        '{' -> depth++
+                        '}' -> depth--
+                    }
+                }
+                i++
+            }
+            if (depth == 0) {
+                candidates.add(text.substring(start, i))
+            }
+        } else {
+            i++
+        }
+    }
+    return candidates
+}
+
+/**
+ * Extracts the outermost JSON object candidate from [raw].
+ * Handles Markdown code fences (e.g. ```json ... ```), preambles, and postscripts that may contain
+ * curly braces, while respecting escaped quotes and braces inside JSON strings.
+ */
 private fun extractJsonObject(raw: String): String {
-    val trimmed = raw.trim()
-    val start = trimmed.indexOf('{')
-    val end = trimmed.lastIndexOf('}')
-    require(start in 0..end) { "No JSON object found in LLM response" }
-    return trimmed.substring(start, end + 1)
+    val fencedCandidates =
+        CODE_FENCE_REGEX
+            .findAll(raw)
+            .flatMap { match -> findBalancedBraceCandidates(match.groupValues[1]) }
+            .toList()
+
+    val candidates =
+        fencedCandidates.ifEmpty {
+            findBalancedBraceCandidates(raw)
+        }
+
+    val best =
+        candidates
+            .filter { it.contains(':') || it.trim() == "{}" }
+            .maxByOrNull { it.length }
+            ?: candidates.maxByOrNull { it.length }
+
+    requireNotNull(best) { "No JSON object found in LLM response" }
+    return best.trim()
 }

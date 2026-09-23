@@ -46,6 +46,7 @@ class AnalysisException(
  */
 internal val errorRules: List<(Throwable) -> AnalysisError?> =
     listOf(
+        { e -> (e as? AnalysisException)?.error },
         { e -> (e as? ResponseException)?.let { AnalysisError.ApiError(it.response.status.value) } },
         { e -> if (e is HttpRequestTimeoutException || e is IOException) AnalysisError.Network else null },
         { e -> if (e is SerializationException) AnalysisError.InvalidResponse("LLM response is not valid JSON") else null },
