@@ -26,10 +26,16 @@ Reference for AI agents and developers working in this repo. Read `## Boundaries
 | React (webApp) | ^18.2.0 |
 | Vite (webApp) | ^7.1.6 |
 | TypeScript (webApp) | ^5.0.2 |
+| Koog (`ai.koog:koog-agents` + `prompt-executor-{anthropic,openai}-client`) | 1.2.0 |
+| Ktor client | 3.3.3 |
+| kotlinx.serialization | 1.10.0 |
+| kotlinx.coroutines (`kotlinx-coroutines-test`, `commonTest` only) | 1.10.2 |
 
 `gradle/libs.versions.toml` is the single source of truth for JVM/Kotlin dependency versions; if this table disagrees with it, **the catalog wins**. `webApp/package.json` is the source of truth for web dependency versions. `^x.y.z` values are npm semver ranges copied from `webApp/package.json` (minimum version, not an exact pin) — all other rows are exact pinned versions from `gradle/libs.versions.toml`.
 
-Not present yet: DI, networking, persistence, navigation, and logging libraries. No Gradle lint plugin (only an IDE-level ktlint setting in `.idea/ktlint-plugin.xml`). No CI configuration (no `.github` directory).
+Koog's `android`-targeted artifacts are compiled against JVM 17 bytecode; calling one of Koog's own `inline` reified functions (e.g. `ai.koog.serialization.typeToken<T>()`) from `sharedLogic` would embed that JVM 17 bytecode into a JVM 11 compilation unit and fail to compile. Prefer the non-inline overload (e.g. `typeToken(kotlin.reflect.typeOf<T>())`) when Koog offers one; see `KoogLlmChats.kt` for a worked example.
+
+Not present yet: DI, persistence, navigation, and logging libraries. Networking (Ktor + kotlinx.serialization) and an LLM agent framework (Koog) were added in `sharedLogic` for issue #7 (`data.ScoreAnalysisService`) — see `## Recommended additions` below for what is still missing. No Gradle lint plugin (only an IDE-level ktlint setting in `.idea/ktlint-plugin.xml`). No CI configuration (no `.github` directory).
 
 ## Project structure
 
@@ -122,11 +128,11 @@ npm run start           # build:shared + vite dev server for webApp
 
 ## Recommended additions (not installed)
 
-**Nothing in this section is installed. Do not assume any of these libraries are available in the code.**
+**Everything in this section is NOT installed except the Networking row below (installed for issue #7). Do not assume any other library listed here is available in the code.**
 
 | Area | Suggested | Why | Applies to | Status |
 |---|---|---|---|---|
-| Networking | Ktor client + kotlinx.serialization | Official multiplatform HTTP client, auto engine selection per target | `sharedLogic`, all targets | NOT INSTALLED |
+| Networking | Ktor client + kotlinx.serialization | Official multiplatform HTTP client, auto engine selection per target | `sharedLogic`, all targets | INSTALLED (issue #7: `data.BraveSearchTool`/`data.FirecrawlSearchTool`, Koog LLM clients) |
 | DI | Koin, prefer Koin Annotations (KSP) | Compile-time safe bindings; catches missing bindings at build time, useful for AI-agent-driven edits | `sharedLogic` | NOT INSTALLED |
 | Persistence | SQLDelight or Room (KMP) | SQL-first vs annotation-based; Room only gained JS/WasmJS support in Room 3.0 (03/2026) — previously SQLDelight was the only option for this repo's `js` target. Both support JS/WasmJS now — pick per team preference | `sharedLogic` | NOT INSTALLED |
 | Preferences | multiplatform-settings | Simple key-value store, supports all targets including JS | `sharedLogic` | NOT INSTALLED |
@@ -162,4 +168,4 @@ Versions are intentionally not pinned here. Use the latest stable release and ve
 - Assume a library from `## Recommended additions` is already installed.
 
 ---
-Last verified against the repo on 2026-09-21 (Kotlin 2.4.20, AGP 9.1.1, Compose Multiplatform 1.12.0).
+Last verified against the repo on 2026-09-23 (Kotlin 2.4.20, AGP 9.1.1, Compose Multiplatform 1.12.0, Koog 1.2.0, Ktor 3.3.3).
