@@ -10,20 +10,19 @@ import kotlinx.serialization.json.Json
 private val envelopeJson =
     Json {
         ignoreUnknownKeys = true
-        isLenient = false
     }
 
 @Serializable
 internal data class EnvelopeDto(
     val subjectName: String,
     val overallSummary: String,
-    val sections: List<SectionDto> = emptyList(),
+    val sections: List<SectionDto>,
 )
 
 @Serializable
 internal data class SectionDto(
     val name: String,
-    val questions: List<QuestionDto> = emptyList(),
+    val questions: List<QuestionDto>,
 )
 
 @Serializable
@@ -52,6 +51,14 @@ internal fun decodeScoreReport(
 
     if (dto.sections.isEmpty()) {
         throw AnalysisException(AnalysisError.AmbiguousSubject(dto.overallSummary))
+    }
+
+    val outOfRange =
+        dto.sections
+            .flatMap { it.questions }
+            .firstOrNull { it.weight < 0.0 || it.rawScore !in 0.0..QuestionScoreResult.MAX_RAW_SCORE }
+    if (outOfRange != null) {
+        throw AnalysisException(AnalysisError.InvalidResponse("Question '${outOfRange.id}' has an out-of-range weight or rawScore"))
     }
 
     return ProjectScoreReport(
@@ -110,6 +117,8 @@ private fun findBalancedBraceCandidates(text: String): List<String> {
             }
             if (depth == 0) {
                 candidates.add(text.substring(start, i))
+            } else {
+                i = start + 1
             }
         } else {
             i++
