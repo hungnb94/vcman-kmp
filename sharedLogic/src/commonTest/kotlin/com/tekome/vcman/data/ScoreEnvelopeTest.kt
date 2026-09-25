@@ -262,4 +262,32 @@ class ScoreEnvelopeTest {
 
         assertIs<AnalysisError.InvalidResponse>(exception.error)
     }
+
+    @Test
+    fun decodeScoreReport_largerNonEnvelopeObjectDoesNotHideEnvelope() {
+        val echoedInput = """{"rubric": {"title": "${"x".repeat(2_000)}", "questions": [{"id": "q1"}]}}"""
+        val raw = "Input was:\n$echoedInput\nResult:\n$validEnvelope"
+
+        val report = decodeScoreReport(raw, rubricTitle = "Rubric", generatedAtEpochMillis = 0L)
+
+        assertEquals("Acme Inc", report.subjectName)
+    }
+
+    @Test
+    fun decodeScoreReport_fencedNonEnvelopeFallsBackToUnfencedEnvelope() {
+        val raw = "Example format:\n```json\n{\"example\": true}\n```\n$validEnvelope"
+
+        val report = decodeScoreReport(raw, rubricTitle = "Rubric", generatedAtEpochMillis = 0L)
+
+        assertEquals("Acme Inc", report.subjectName)
+    }
+
+    @Test
+    fun decodeScoreReport_falseBalancedMatchInProseDoesNotSwallowEnvelope() {
+        val raw = "Note {\"quote} here\n" + validEnvelope.replace("\"Strong\"", "\"Strong } lead\"")
+
+        val report = decodeScoreReport(raw, rubricTitle = "Rubric", generatedAtEpochMillis = 0L)
+
+        assertEquals("Acme Inc", report.subjectName)
+    }
 }

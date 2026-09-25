@@ -40,14 +40,7 @@ internal fun decodeScoreReport(
     rubricTitle: String,
     generatedAtEpochMillis: Long,
 ): ProjectScoreReport {
-    val dto =
-        try {
-            envelopeJson.decodeFromString(EnvelopeDto.serializer(), extractJsonObject(raw))
-        } catch (e: SerializationException) {
-            throw AnalysisException(AnalysisError.InvalidResponse("LLM response is not valid JSON"), e)
-        } catch (e: IllegalArgumentException) {
-            throw AnalysisException(AnalysisError.InvalidResponse("LLM response does not contain a JSON object"), e)
-        }
+    val dto = decodeEnvelope(raw)
 
     if (dto.sections.isEmpty()) {
         throw AnalysisException(AnalysisError.AmbiguousSubject(dto.overallSummary))
@@ -86,65 +79,51 @@ internal fun decodeScoreReport(
     )
 }
 
-private val CODE_FENCE_REGEX = Regex("""```(?:json)?\s*([\s\S]*?)\s*```""", RegexOption.IGNORE_CASE)
+private fun decodeEnvelope(raw: String): EnvelopeDto {
+    val candidates = findBalancedBraceCandidates(raw).sortedByDescending { it.length }.toList()
+    if (candidates.isEmpty()) {
+        throw AnalysisException(AnalysisError.InvalidResponse("LLM response does not contain a JSON object"))
+    }
 
-private fun findBalancedBraceCandidates(text: String): List<String> {
-    val candidates = mutableListOf<String>()
-    var i = 0
-    while (i < text.length) {
-        if (text[i] == '{') {
-            val start = i
-            var depth = 1
-            var inString = false
-            i++
-            while (i < text.length && depth > 0) {
-                val c = text[i]
-                if (inString) {
-                    if (c == '\\') {
-                        i += 2
-                        continue
-                    } else if (c == '"') {
-                        inString = false
-                    }
-                } else {
-                    when (c) {
-                        '"' -> inString = true
-                        '{' -> depth++
-                        '}' -> depth--
-                    }
-                }
-                i++
-            }
-            if (depth == 0) {
-                candidates.add(text.substring(start, i))
-            } else {
-                i = start + 1
-            }
-        } else {
-            i++
+    var firstFailure: SerializationException? = null
+    for (candidate in candidates) {
+        try {
+            return envelopeJson.decodeFromString(EnvelopeDto.serializer(), candidate)
+        } catch (e: SerializationException) {
+            if (firstFailure == null) firstFailure = e
         }
     }
-    return candidates
+    throw AnalysisException(AnalysisError.InvalidResponse("LLM response is not valid JSON"), firstFailure)
 }
 
-private fun extractJsonObject(raw: String): String {
-    val fencedCandidates =
-        CODE_FENCE_REGEX
-            .findAll(raw)
-            .flatMap { match -> findBalancedBraceCandidates(match.groupValues[1]) }
-            .toList()
+private fun findBalancedBraceCandidates(text: String): Sequence<String> =
+    text.indices
+        .asSequence()
+        .filter { text[it] == '{' }
+        .mapNotNull { start -> balancedEnd(text, start)?.let { end -> text.substring(start, end) } }
 
-    val candidates =
-        fencedCandidates.ifEmpty {
-            findBalancedBraceCandidates(raw)
+private fun balancedEnd(
+    text: String,
+    start: Int,
+): Int? {
+    var depth = 0
+    var inString = false
+    var i = start
+    while (i < text.length) {
+        val c = text[i]
+        if (inString) {
+            when (c) {
+                '\\' -> i++
+                '"' -> inString = false
+            }
+        } else {
+            when (c) {
+                '"' -> inString = true
+                '{' -> depth++
+                '}' -> if (--depth == 0) return i + 1
+            }
         }
-
-    val best =
-        candidates
-            .filter { it.contains(':') || it.trim() == "{}" }
-            .maxByOrNull { it.length }
-            ?: candidates.maxByOrNull { it.length }
-
-    requireNotNull(best) { "No JSON object found in LLM response" }
-    return best.trim()
+        i++
+    }
+    return null
 }

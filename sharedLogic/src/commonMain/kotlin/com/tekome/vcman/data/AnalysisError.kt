@@ -4,6 +4,9 @@ import com.tekome.vcman.domain.ProjectScoreReport
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.ResponseException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.io.IOException
 import kotlinx.serialization.SerializationException
 
@@ -52,6 +55,9 @@ internal suspend fun runAnalysis(
 ): Result<ProjectScoreReport> =
     try {
         Result.success(block())
+    } catch (e: TimeoutCancellationException) {
+        currentCoroutineContext().ensureActive()
+        Result.failure(AnalysisException(AnalysisError.Network, e))
     } catch (e: CancellationException) {
         throw e
     } catch (e: AnalysisException) {
