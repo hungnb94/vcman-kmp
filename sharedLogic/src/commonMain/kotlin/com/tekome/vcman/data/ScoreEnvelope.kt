@@ -36,18 +36,6 @@ internal data class QuestionDto(
     val sourceUrl: String? = null,
 )
 
-/**
- * Extracts the JSON object embedded in [raw] (the LLM may still add a code fence or a
- * conversational preamble despite [PromptBuilder]'s instructions not to), decodes it against the
- * envelope schema, applies the ambiguity rule, and maps the result to the domain
- * [ProjectScoreReport].
- *
- * @throws AnalysisException with [AnalysisError.AmbiguousSubject] when the model reports an empty
- * `sections` array — a valid, schema-conforming response per `AMBIGUITY_POLICY`, not a decode
- * error.
- * @throws AnalysisException with [AnalysisError.InvalidResponse] when [raw] cannot be decoded into
- * the envelope schema.
- */
 internal fun decodeScoreReport(
     raw: String,
     rubricTitle: String,
@@ -130,11 +118,6 @@ private fun findBalancedBraceCandidates(text: String): List<String> {
     return candidates
 }
 
-/**
- * Extracts the outermost JSON object candidate from [raw].
- * Handles Markdown code fences (e.g. ```json ... ```), preambles, and postscripts that may contain
- * curly braces, while respecting escaped quotes and braces inside JSON strings.
- */
 private fun extractJsonObject(raw: String): String {
     val fencedCandidates =
         CODE_FENCE_REGEX

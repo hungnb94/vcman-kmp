@@ -71,8 +71,6 @@ class AnalysisErrorTest {
 
     @Test
     fun classify_cyclicCauseChainTerminates() {
-        // `Throwable.cause` is a `val` in common Kotlin (no `initCause`, JVM-only), so a real cycle
-        // needs a custom subclass whose `cause` resolves lazily to the other node in the cycle.
         lateinit var first: CyclicThrowable
         val second = CyclicThrowable("second") { first }
         first = CyclicThrowable("first") { second }
@@ -140,7 +138,6 @@ class AnalysisErrorTest {
         }
 }
 
-/** A `Throwable` whose `cause` is resolved lazily, so tests can build a genuine cyclic cause chain. */
 private class CyclicThrowable(
     message: String,
     private val causeProvider: () -> Throwable,
