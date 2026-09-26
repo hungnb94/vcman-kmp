@@ -2,14 +2,12 @@ package com.tekome.vcman.data
 
 import io.ktor.client.HttpClient
 
-/** One result item returned by a [WebSearchTool] search. */
 data class WebSearchResult(
     val title: String,
     val url: String,
     val snippet: String,
 )
 
-/** A pluggable web-search backend an LLM agent can call as a tool during analysis. */
 fun interface WebSearchTool {
     suspend fun search(query: String): List<WebSearchResult>
 }
