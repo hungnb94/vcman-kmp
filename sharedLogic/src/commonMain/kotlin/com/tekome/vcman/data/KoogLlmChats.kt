@@ -29,7 +29,7 @@ internal fun koogChatFactoryFor(provider: LlmProvider): LlmChatFactory =
             LlmChatFactory { apiKey ->
                 KoogLlmChat(
                     client = AnthropicLLMClient(apiKey = apiKey.value, httpClientFactory = koogHttpClientFactory),
-                    model = AnthropicModels.Sonnet_4_5,
+                    model = AnthropicModels.Sonnet_5,
                 )
             }
         }
@@ -38,7 +38,7 @@ internal fun koogChatFactoryFor(provider: LlmProvider): LlmChatFactory =
             LlmChatFactory { apiKey ->
                 KoogLlmChat(
                     client = OpenAILLMClient(apiKey = apiKey.value, httpClientFactory = koogHttpClientFactory),
-                    model = OpenAIModels.Chat.GPT4o,
+                    model = OpenAIModels.Chat.GPT5_6Sol,
                 )
             }
         }
