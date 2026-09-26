@@ -12,18 +12,9 @@ class WebSearchToolTest {
 
     @Test
     fun webSearchToolConfig_toStringNeverContainsApiKey() {
-        val brave = WebSearchToolConfig.Brave(ApiKey("brave-secret"))
         val firecrawl = WebSearchToolConfig.Firecrawl(ApiKey("firecrawl-secret"))
 
-        assertFalse("brave-secret" in brave.toString())
         assertFalse("firecrawl-secret" in firecrawl.toString())
-    }
-
-    @Test
-    fun createTool_braveConfigCreatesBraveSearchTool() {
-        val tool = WebSearchToolConfig.Brave(ApiKey("key")).createTool(noopHttpClient())
-
-        assertIs<BraveSearchTool>(tool)
     }
 
     @Test

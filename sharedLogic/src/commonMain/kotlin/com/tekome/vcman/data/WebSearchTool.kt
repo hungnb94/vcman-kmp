@@ -26,14 +26,6 @@ fun interface WebSearchTool {
 sealed class WebSearchToolConfig {
     internal abstract fun createTool(http: HttpClient): WebSearchTool
 
-    class Brave(
-        val apiKey: ApiKey,
-    ) : WebSearchToolConfig() {
-        override fun createTool(http: HttpClient): WebSearchTool = BraveSearchTool(http, apiKey)
-
-        override fun toString(): String = "WebSearchToolConfig.Brave"
-    }
-
     class Firecrawl(
         val apiKey: ApiKey,
     ) : WebSearchToolConfig() {
