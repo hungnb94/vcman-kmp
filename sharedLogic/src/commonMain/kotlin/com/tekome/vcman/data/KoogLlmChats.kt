@@ -1,6 +1,7 @@
 package com.tekome.vcman.data
 
 import ai.koog.agents.core.agent.AIAgent
+import ai.koog.agents.core.agent.exception.AIAgentException
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.core.tools.annotations.LLMDescription
@@ -54,11 +55,19 @@ internal fun koogChatFactoryFor(provider: LlmProvider): LlmChatFactory =
         }
     }
 
-/** Extends the base [errorRules] with the Koog-specific HTTP failure type discovered while wiring this adapter. */
+/**
+ * Extends the base [errorRules] with the Koog-specific failure types discovered while wiring this
+ * adapter: an HTTP failure surfaced by [koogHttpClientFactory] ([KoogHttpClientException]), and the
+ * agent giving up without a usable response ([AIAgentException], e.g. hitting [MAX_AGENT_ITERATIONS]
+ * without finishing). Without this second rule, [AIAgentException] would otherwise fail `classify`'s
+ * every rule and leak out of [KoogScoreAnalysisService.analyze] as a raw, un-[AnalysisException]
+ * Koog type — breaking the "every Koog-specific type stays behind this port" contract.
+ */
 internal val koogErrorRules: List<(Throwable) -> AnalysisError?> =
     errorRules +
         listOf<(Throwable) -> AnalysisError?>(
             { e -> (e as? KoogHttpClientException)?.let { AnalysisError.ApiError(it.statusCode) } },
+            { e -> (e as? AIAgentException)?.let { AnalysisError.InvalidResponse(it.message ?: "Agent failed to produce a response") } },
         )
 
 /**
@@ -86,7 +95,15 @@ internal class KoogLlmChat(
                 systemPrompt = systemPrompt,
                 maxIterations = MAX_AGENT_ITERATIONS,
             )
-        return agent.run(userPrompt)
+        // `client` is constructed fresh per call (see `koogChatFactoryFor`) and owns its own
+        // `KoogHttpClient`/connection pool; `LLMClient` is `AutoCloseable` and its contract says to
+        // "always close it when finished", so it must be closed here or every `analyze()` call leaks
+        // an HTTP client.
+        return try {
+            agent.run(userPrompt)
+        } finally {
+            client.close()
+        }
     }
 }
 

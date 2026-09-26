@@ -1,5 +1,7 @@
 package com.tekome.vcman.data
 
+import ai.koog.agents.core.agent.exception.AIAgentMaxNumberOfIterationsReachedException
+import ai.koog.http.client.KoogHttpClientException
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -50,4 +52,29 @@ class KoogLlmChatsTest {
 
             assertFailsWith<IllegalStateException> { tool.execute(WebSearchKoogTool.Args("acme")) }
         }
+
+    @Test
+    fun koogErrorRules_classifiesAgentGivingUpAsInvalidResponse() {
+        // The agent hitting its iteration cap without finishing (e.g. MAX_AGENT_ITERATIONS with a
+        // slow-converging tool loop) must not leak a raw Koog exception out of `analyze` — it should
+        // classify the same way any other "LLM never produced a usable answer" failure does.
+        val exception = AIAgentMaxNumberOfIterationsReachedException(20)
+
+        val error = classify(exception, koogErrorRules)
+
+        assertIs<AnalysisError.InvalidResponse>(error)
+    }
+
+    @Test
+    fun koogErrorRules_classifiesKoogHttpClientExceptionAsApiError() {
+        // The Ktor-backed Koog HTTP client (see KtorKoogHttpClient) reports every non-2xx LLM
+        // provider response as a KoogHttpClientException, not Ktor's own ResponseException, so this
+        // rule is the only thing standing between a 401/429/500 from Anthropic/OpenAI and a raw,
+        // unclassified exception leaking out of `analyze`.
+        val exception = KoogHttpClientException(clientName = "anthropic", statusCode = 429)
+
+        val error = classify(exception, koogErrorRules)
+
+        assertEquals(AnalysisError.ApiError(429), error)
+    }
 }
