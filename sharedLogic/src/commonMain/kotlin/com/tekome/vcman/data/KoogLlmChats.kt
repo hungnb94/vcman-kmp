@@ -56,12 +56,9 @@ internal fun koogChatFactoryFor(provider: LlmProvider): LlmChatFactory =
     }
 
 /**
- * Extends the base [errorRules] with the Koog-specific failure types discovered while wiring this
- * adapter: an HTTP failure surfaced by [koogHttpClientFactory] ([KoogHttpClientException]), and the
- * agent giving up without a usable response ([AIAgentException], e.g. hitting [MAX_AGENT_ITERATIONS]
- * without finishing). Without this second rule, [AIAgentException] would otherwise fail `classify`'s
- * every rule and leak out of [KoogScoreAnalysisService.analyze] as a raw, un-[AnalysisException]
- * Koog type — breaking the "every Koog-specific type stays behind this port" contract.
+ * Extends [errorRules] with Koog-specific failure types, so a raw Koog exception (e.g.
+ * [AIAgentException] hitting [MAX_AGENT_ITERATIONS]) never leaks past
+ * [KoogScoreAnalysisService.analyze] as an un-[AnalysisException] type.
  */
 internal val koogErrorRules: List<(Throwable) -> AnalysisError?> =
     errorRules +
@@ -70,10 +67,6 @@ internal val koogErrorRules: List<(Throwable) -> AnalysisError?> =
             { e -> (e as? AIAgentException)?.let { AnalysisError.InvalidResponse(it.message ?: "Agent failed to produce a response") } },
         )
 
-/**
- * [LlmChat] adapter backed by a Koog [AIAgent]. Every [WebSearchTool] passed in is wrapped by the
- * same [WebSearchKoogTool] adapter, so a new search backend never needs its own Koog wiring.
- */
 internal class KoogLlmChat(
     private val client: LLMClient,
     private val model: LLModel,

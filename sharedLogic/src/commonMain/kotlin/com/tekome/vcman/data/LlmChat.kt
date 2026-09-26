@@ -18,9 +18,7 @@ internal fun interface LlmChatFactory {
 }
 
 /**
- * Resolves which [LlmChatFactory] backs a given [LlmProvider]. The default implementation
- * ([koogChatFactoryFor]) is an exhaustive `when` over the sealed [LlmProvider], so a provider
- * missing its wiring is a compile error, not a runtime failure. Injectable so tests can supply a
- * fake without touching Koog.
+ * Resolves which [LlmChatFactory] backs a given [LlmProvider]. Injectable so tests can supply a
+ * fake without touching Koog; see [koogChatFactoryFor] for the default implementation.
  */
 internal typealias LlmChatResolver = (LlmProvider) -> LlmChatFactory
