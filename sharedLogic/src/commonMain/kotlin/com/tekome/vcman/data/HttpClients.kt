@@ -30,7 +30,6 @@ private val defaultHttpClientConfig: HttpClientConfig<*>.() -> Unit = {
 }
 
 /**
- * The one place [FirecrawlSearchTool] gets its production [HttpClient] from.
  * Ktor selects the engine per target (OkHttp/Darwin/JS) automatically from the engine artifact on
  * the classpath, so no `expect`/`actual` is needed here.
  */

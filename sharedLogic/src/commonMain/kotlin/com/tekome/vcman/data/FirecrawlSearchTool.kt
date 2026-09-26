@@ -9,7 +9,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.Serializable
 
-/** Firecrawl `/v1/search` backed [WebSearchTool]. */
 internal class FirecrawlSearchTool(
     private val http: HttpClient,
     private val apiKey: ApiKey,
@@ -48,7 +47,6 @@ private data class FirecrawlSearchResponse(
     )
 }
 
-/** Drops entries missing a title or url; a snippet-less result is still usable, so it defaults to empty. */
 private fun FirecrawlSearchResponse.Item.toWebSearchResult(): WebSearchResult? {
     val resultTitle = title?.takeIf { it.isNotBlank() } ?: return null
     val resultUrl = url?.takeIf { it.isNotBlank() } ?: return null
