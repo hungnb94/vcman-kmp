@@ -10,20 +10,19 @@ import kotlinx.serialization.json.Json
 private val envelopeJson =
     Json {
         ignoreUnknownKeys = true
-        isLenient = false
     }
 
 @Serializable
 internal data class EnvelopeDto(
     val subjectName: String,
     val overallSummary: String,
-    val sections: List<SectionDto> = emptyList(),
+    val sections: List<SectionDto>,
 )
 
 @Serializable
 internal data class SectionDto(
     val name: String,
-    val questions: List<QuestionDto> = emptyList(),
+    val questions: List<QuestionDto>,
 )
 
 @Serializable
@@ -36,34 +35,23 @@ internal data class QuestionDto(
     val sourceUrl: String? = null,
 )
 
-/**
- * Extracts the JSON object embedded in [raw] (the LLM may still add a code fence or a
- * conversational preamble despite [PromptBuilder]'s instructions not to), decodes it against the
- * envelope schema, applies the ambiguity rule, and maps the result to the domain
- * [ProjectScoreReport].
- *
- * @throws AnalysisException with [AnalysisError.AmbiguousSubject] when the model reports an empty
- * `sections` array — a valid, schema-conforming response per `AMBIGUITY_POLICY`, not a decode
- * error.
- * @throws AnalysisException with [AnalysisError.InvalidResponse] when [raw] cannot be decoded into
- * the envelope schema.
- */
 internal fun decodeScoreReport(
     raw: String,
     rubricTitle: String,
     generatedAtEpochMillis: Long,
 ): ProjectScoreReport {
-    val dto =
-        try {
-            envelopeJson.decodeFromString(EnvelopeDto.serializer(), extractJsonObject(raw))
-        } catch (e: SerializationException) {
-            throw AnalysisException(AnalysisError.InvalidResponse("LLM response is not valid JSON"), e)
-        } catch (e: IllegalArgumentException) {
-            throw AnalysisException(AnalysisError.InvalidResponse("LLM response does not contain a JSON object"), e)
-        }
+    val dto = decodeEnvelope(raw)
 
     if (dto.sections.isEmpty()) {
         throw AnalysisException(AnalysisError.AmbiguousSubject(dto.overallSummary))
+    }
+
+    val outOfRange =
+        dto.sections
+            .flatMap { it.questions }
+            .firstOrNull { it.weight < 0.0 || it.rawScore !in 0.0..QuestionScoreResult.MAX_RAW_SCORE }
+    if (outOfRange != null) {
+        throw AnalysisException(AnalysisError.InvalidResponse("Question '${outOfRange.id}' has an out-of-range weight or rawScore"))
     }
 
     return ProjectScoreReport(
@@ -91,68 +79,51 @@ internal fun decodeScoreReport(
     )
 }
 
-private val CODE_FENCE_REGEX = Regex("""```(?:json)?\s*([\s\S]*?)\s*```""", RegexOption.IGNORE_CASE)
+private fun decodeEnvelope(raw: String): EnvelopeDto {
+    val candidates = findBalancedBraceCandidates(raw).sortedByDescending { it.length }.toList()
+    if (candidates.isEmpty()) {
+        throw AnalysisException(AnalysisError.InvalidResponse("LLM response does not contain a JSON object"))
+    }
 
-private fun findBalancedBraceCandidates(text: String): List<String> {
-    val candidates = mutableListOf<String>()
-    var i = 0
-    while (i < text.length) {
-        if (text[i] == '{') {
-            val start = i
-            var depth = 1
-            var inString = false
-            i++
-            while (i < text.length && depth > 0) {
-                val c = text[i]
-                if (inString) {
-                    if (c == '\\') {
-                        i += 2
-                        continue
-                    } else if (c == '"') {
-                        inString = false
-                    }
-                } else {
-                    when (c) {
-                        '"' -> inString = true
-                        '{' -> depth++
-                        '}' -> depth--
-                    }
-                }
-                i++
-            }
-            if (depth == 0) {
-                candidates.add(text.substring(start, i))
-            }
-        } else {
-            i++
+    var firstFailure: SerializationException? = null
+    for (candidate in candidates) {
+        try {
+            return envelopeJson.decodeFromString(EnvelopeDto.serializer(), candidate)
+        } catch (e: SerializationException) {
+            if (firstFailure == null) firstFailure = e
         }
     }
-    return candidates
+    throw AnalysisException(AnalysisError.InvalidResponse("LLM response is not valid JSON"), firstFailure)
 }
 
-/**
- * Extracts the outermost JSON object candidate from [raw].
- * Handles Markdown code fences (e.g. ```json ... ```), preambles, and postscripts that may contain
- * curly braces, while respecting escaped quotes and braces inside JSON strings.
- */
-private fun extractJsonObject(raw: String): String {
-    val fencedCandidates =
-        CODE_FENCE_REGEX
-            .findAll(raw)
-            .flatMap { match -> findBalancedBraceCandidates(match.groupValues[1]) }
-            .toList()
+private fun findBalancedBraceCandidates(text: String): Sequence<String> =
+    text.indices
+        .asSequence()
+        .filter { text[it] == '{' }
+        .mapNotNull { start -> balancedEnd(text, start)?.let { end -> text.substring(start, end) } }
 
-    val candidates =
-        fencedCandidates.ifEmpty {
-            findBalancedBraceCandidates(raw)
+private fun balancedEnd(
+    text: String,
+    start: Int,
+): Int? {
+    var depth = 0
+    var inString = false
+    var i = start
+    while (i < text.length) {
+        val c = text[i]
+        if (inString) {
+            when (c) {
+                '\\' -> i++
+                '"' -> inString = false
+            }
+        } else {
+            when (c) {
+                '"' -> inString = true
+                '{' -> depth++
+                '}' -> if (--depth == 0) return i + 1
+            }
         }
-
-    val best =
-        candidates
-            .filter { it.contains(':') || it.trim() == "{}" }
-            .maxByOrNull { it.length }
-            ?: candidates.maxByOrNull { it.length }
-
-    requireNotNull(best) { "No JSON object found in LLM response" }
-    return best.trim()
+        i++
+    }
+    return null
 }

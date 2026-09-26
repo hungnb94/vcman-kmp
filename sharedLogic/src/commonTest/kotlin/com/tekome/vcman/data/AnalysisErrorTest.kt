@@ -7,7 +7,9 @@ import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.request.get
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import kotlinx.io.IOException
 import kotlinx.serialization.SerializationException
 import kotlin.test.Test
@@ -71,8 +73,6 @@ class AnalysisErrorTest {
 
     @Test
     fun classify_cyclicCauseChainTerminates() {
-        // `Throwable.cause` is a `val` in common Kotlin (no `initCause`, JVM-only), so a real cycle
-        // needs a custom subclass whose `cause` resolves lazily to the other node in the cycle.
         lateinit var first: CyclicThrowable
         val second = CyclicThrowable("second") { first }
         first = CyclicThrowable("first") { second }
@@ -140,7 +140,6 @@ class AnalysisErrorTest {
         }
 }
 
-/** A `Throwable` whose `cause` is resolved lazily, so tests can build a genuine cyclic cause chain. */
 private class CyclicThrowable(
     message: String,
     private val causeProvider: () -> Throwable,
