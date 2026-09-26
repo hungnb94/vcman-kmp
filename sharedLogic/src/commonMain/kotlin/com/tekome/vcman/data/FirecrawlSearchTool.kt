@@ -18,7 +18,6 @@ internal class FirecrawlSearchTool(
             http
                 .post(FIRECRAWL_SEARCH_URL) {
                     contentType(ContentType.Application.Json)
-                    // The API key is a header value only; it must never end up in the URL/query string.
                     header("Authorization", "Bearer ${apiKey.value}")
                     setBody(FirecrawlSearchRequest(query = query))
                 }.body()
