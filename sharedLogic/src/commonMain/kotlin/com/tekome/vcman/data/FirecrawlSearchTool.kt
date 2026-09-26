@@ -22,6 +22,9 @@ internal class FirecrawlSearchTool(
                     header("Authorization", "Bearer ${apiKey.value}")
                     setBody(FirecrawlSearchRequest(query = query))
                 }.body()
+        if (!response.success) {
+            throw AnalysisException(AnalysisError.InvalidResponse("Firecrawl search reported success=false"))
+        }
         return response.data.orEmpty().mapNotNull { it.toWebSearchResult() }
     }
 
@@ -37,6 +40,7 @@ private data class FirecrawlSearchRequest(
 
 @Serializable
 private data class FirecrawlSearchResponse(
+    val success: Boolean = true,
     val data: List<Item>? = null,
 ) {
     @Serializable
