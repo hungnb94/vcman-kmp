@@ -13,12 +13,11 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertTrue
+import kotlin.test.assertIs
 
 class FirecrawlSearchToolTest {
     private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
 
-    /** Uses the real production client factory so tests decode exactly like [FirecrawlSearchTool] does at runtime. */
     private fun testHttpClient(handler: MockRequestHandler): HttpClient = createHttpClient(MockEngine(handler))
 
     private fun clientReturning(
@@ -83,7 +82,7 @@ class FirecrawlSearchToolTest {
 
             tool.search("vc rubric scoring")
 
-            assertTrue(capturedBody?.contains("vc rubric scoring") == true)
+            assertEquals(capturedBody?.contains("vc rubric scoring"), true)
         }
 
     @Test
@@ -100,5 +99,15 @@ class FirecrawlSearchToolTest {
             val tool = FirecrawlSearchTool(clientReturning("""{"success":true,"data":[]}"""), ApiKey("key"))
 
             assertEquals(emptyList(), tool.search("query"))
+        }
+
+    @Test
+    fun search_httpOkButSuccessFalseThrowsInvalidResponse() =
+        runTest {
+            val tool = FirecrawlSearchTool(clientReturning("""{"success":false}"""), ApiKey("key"))
+
+            val error = assertFailsWith<AnalysisException> { tool.search("query") }
+
+            assertIs<AnalysisError.InvalidResponse>(error.error)
         }
 }
