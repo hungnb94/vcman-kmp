@@ -15,6 +15,7 @@ import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.llms.MultiLLMPromptExecutor
 import ai.koog.prompt.llm.LLModel
 import ai.koog.serialization.typeToken
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlin.reflect.typeOf
 
@@ -46,7 +47,11 @@ internal fun koogChatFactoryFor(provider: LlmProvider): LlmChatFactory =
 internal val koogErrorRules: List<(Throwable) -> AnalysisError?> =
     errorRules +
         listOf(
-            { e -> (e as? KoogHttpClientException)?.let { AnalysisError.ApiError(it.statusCode) } },
+            { e ->
+                (e as? KoogHttpClientException)?.let {
+                    it.statusCode?.let { status -> AnalysisError.ApiError(status) } ?: AnalysisError.Network
+                }
+            },
             { e -> (e as? AIAgentException)?.let { AnalysisError.InvalidResponse(it.message ?: "Agent failed to produce a response") } },
         )
 
@@ -59,9 +64,13 @@ internal class KoogLlmChat(
         userPrompt: String,
         tools: List<WebSearchTool>,
     ): String {
+        var lastToolFailure: Throwable? = null
         val toolRegistry =
             ToolRegistry {
-                tools.forEach { tool(WebSearchKoogTool(it)) }
+                tools.forEachIndexed { index, searchTool ->
+                    val toolName = if (tools.size > 1) "web_search_$index" else "web_search"
+                    tool(WebSearchKoogTool(searchTool, name = toolName) { failure -> lastToolFailure = failure })
+                }
             }
         val agent =
             AIAgent(
@@ -73,6 +82,10 @@ internal class KoogLlmChat(
             )
         return try {
             agent.run(userPrompt)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            throw lastToolFailure ?: e
         } finally {
             client.close()
         }
@@ -81,12 +94,14 @@ internal class KoogLlmChat(
 
 internal class WebSearchKoogTool(
     private val delegate: WebSearchTool,
+    name: String = "web_search",
+    private val onFailure: (Throwable) -> Unit = {},
 ) : SimpleTool<WebSearchKoogTool.Args>(
         argsType = typeToken(typeOf<Args>()),
-        name = "web_search",
+        name = name,
         description =
             "Search the live web for up-to-date information. " +
-                "Returns one result per line as 'title | url | snippet'.",
+                "Returns each result as labeled Title/URL/Snippet lines, separated by blank lines.",
     ) {
     @Serializable
     data class Args(
@@ -95,8 +110,22 @@ internal class WebSearchKoogTool(
     )
 
     override suspend fun execute(args: Args): String {
-        val results = delegate.search(args.query)
+        val results =
+            try {
+                delegate.search(args.query)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                onFailure(e)
+                throw e
+            }
         if (results.isEmpty()) return "No web search results found for query: ${args.query}"
-        return results.joinToString("\n") { "${it.title} | ${it.url} | ${it.snippet}" }
+        return results.joinToString("\n\n") { result ->
+            """
+            Title: ${result.title.replace('\n', ' ')}
+            URL: ${result.url}
+            Snippet: ${result.snippet.replace('\n', ' ')}
+            """.trimIndent()
+        }
     }
 }
