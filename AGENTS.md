@@ -18,7 +18,7 @@ Reference for AI agents and developers working in this repo. Read `## Boundaries
 | Compose Multiplatform | 1.12.0 |
 | Material3 (Compose) | 1.12.0-alpha03 |
 | AndroidX Lifecycle (KMP artifacts) | 2.11.0 |
-| kotlin-wrappers (JS/React interop) | 2026.9.1 |
+| kotlin-wrappers (JS/React interop) | 2026.9.2 |
 | AndroidX Activity | 1.13.0 |
 | Android compileSdk / targetSdk / minSdk | 37 / 37 / 27 |
 | Gradle wrapper | 9.5.1 |
@@ -26,10 +26,10 @@ Reference for AI agents and developers working in this repo. Read `## Boundaries
 | React (webApp) | ^18.2.0 |
 | Vite (webApp) | ^7.1.6 |
 | TypeScript (webApp) | ^5.0.2 |
-| Koog (`ai.koog:koog-agents` + `prompt-executor-{anthropic,openai}-client`) | 1.2.0 |
+| Koog (`ai.koog:koog-agents` + `prompt-executor-{anthropic,openai}-client`) | 1.3.0 |
 | Ktor client | 3.3.3 |
-| kotlinx.serialization | 1.10.0 |
-| kotlinx.coroutines (`kotlinx-coroutines-test`, `commonTest` only) | 1.10.2 |
+| kotlinx.serialization | 1.11.0 |
+| kotlinx.coroutines (`kotlinx-coroutines-test`, `commonTest` only) | 1.11.0 |
 
 `gradle/libs.versions.toml` is the single source of truth for JVM/Kotlin dependency versions; if this table disagrees with it, **the catalog wins**. `webApp/package.json` is the source of truth for web dependency versions. `^x.y.z` values are npm semver ranges copied from `webApp/package.json` (minimum version, not an exact pin) — all other rows are exact pinned versions from `gradle/libs.versions.toml`.
 
@@ -168,4 +168,4 @@ Versions are intentionally not pinned here. Use the latest stable release and ve
 - Assume a library from `## Recommended additions` is already installed.
 
 ---
-Last verified against the repo on 2026-09-23 (Kotlin 2.4.20, AGP 9.1.1, Compose Multiplatform 1.12.0, Koog 1.2.0, Ktor 3.3.3).
+Last verified against the repo on 2026-09-23 (Kotlin 2.4.20, AGP 9.1.1, Compose Multiplatform 1.12.0, Koog 1.3.0, Ktor 3.3.3).

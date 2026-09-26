@@ -19,8 +19,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlin.reflect.typeOf
 
-private val koogHttpClientFactory = KtorKoogHttpClient.Factory()
-
 private const val MAX_AGENT_ITERATIONS = 20
 
 internal fun koogChatFactoryFor(provider: LlmProvider): LlmChatFactory =
@@ -28,7 +26,7 @@ internal fun koogChatFactoryFor(provider: LlmProvider): LlmChatFactory =
         LlmProvider.Anthropic -> {
             LlmChatFactory { apiKey ->
                 KoogLlmChat(
-                    client = AnthropicLLMClient(apiKey = apiKey.value, httpClientFactory = koogHttpClientFactory),
+                    client = AnthropicLLMClient(apiKey = apiKey.value, httpClientFactory = KtorKoogHttpClient.Factory()),
                     model = AnthropicModels.Sonnet_5,
                 )
             }
@@ -37,7 +35,7 @@ internal fun koogChatFactoryFor(provider: LlmProvider): LlmChatFactory =
         LlmProvider.OpenAI -> {
             LlmChatFactory { apiKey ->
                 KoogLlmChat(
-                    client = OpenAILLMClient(apiKey = apiKey.value, httpClientFactory = koogHttpClientFactory),
+                    client = OpenAILLMClient(apiKey = apiKey.value, httpClientFactory = KtorKoogHttpClient.Factory()),
                     model = OpenAIModels.Chat.GPT5_6Sol,
                 )
             }
@@ -67,9 +65,8 @@ internal class KoogLlmChat(
         var lastToolFailure: Throwable? = null
         val toolRegistry =
             ToolRegistry {
-                tools.forEachIndexed { index, searchTool ->
-                    val toolName = if (tools.size > 1) "web_search_$index" else "web_search"
-                    tool(WebSearchKoogTool(searchTool, name = toolName) { failure -> lastToolFailure = failure })
+                tools.forEach { searchTool ->
+                    tool(WebSearchKoogTool(searchTool) { failure -> lastToolFailure = failure })
                 }
             }
         val agent =
@@ -95,7 +92,7 @@ internal class KoogLlmChat(
 internal class WebSearchKoogTool(
     private val delegate: WebSearchTool,
     name: String = "web_search",
-    private val onFailure: (Throwable) -> Unit = {},
+    private val onFailure: (Throwable?) -> Unit = {},
 ) : SimpleTool<WebSearchKoogTool.Args>(
         argsType = typeToken(typeOf<Args>()),
         name = name,
@@ -112,7 +109,7 @@ internal class WebSearchKoogTool(
     override suspend fun execute(args: Args): String {
         val results =
             try {
-                delegate.search(args.query)
+                delegate.search(args.query).also { onFailure(null) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
