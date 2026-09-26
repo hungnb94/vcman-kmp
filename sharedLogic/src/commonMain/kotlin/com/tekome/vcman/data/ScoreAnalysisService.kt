@@ -26,7 +26,6 @@ interface ScoreAnalysisService {
  * changing the existing ones or the type of the ones already shipped.
  */
 sealed interface LlmProvider {
-    /** Human-readable name for UI use, so callers never need to `when` on the provider itself. */
     val displayName: String
 
     data object Anthropic : LlmProvider {

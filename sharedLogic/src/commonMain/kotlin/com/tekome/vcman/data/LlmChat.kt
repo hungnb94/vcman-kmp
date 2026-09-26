@@ -13,7 +13,6 @@ internal fun interface LlmChat {
     ): String
 }
 
-/** Builds an [LlmChat] once the caller's [ApiKey] is known. */
 internal fun interface LlmChatFactory {
     fun create(apiKey: ApiKey): LlmChat
 }
