@@ -173,23 +173,6 @@ class KoogScoreAnalysisServiceTest {
         }
 
     @Test
-    fun analyze_braveOrFirecrawlConfigPassesMatchingTool() =
-        runTest {
-            var capturedTools: List<WebSearchTool>? = null
-            val chat =
-                LlmChat { _, _, tools ->
-                    capturedTools = tools
-                    validEnvelope
-                }
-            val service = serviceWith({ LlmChatFactory { chat } })
-
-            service.analyze(rubric, "Acme", requestConfig(searchTool = WebSearchToolConfig.Brave(ApiKey("brave-key"))))
-
-            assertEquals(1, capturedTools?.size)
-            assertIs<BraveSearchTool>(capturedTools!!.first())
-        }
-
-    @Test
     fun analyze_firecrawlConfigPassesMatchingTool() =
         runTest {
             var capturedTools: List<WebSearchTool>? = null

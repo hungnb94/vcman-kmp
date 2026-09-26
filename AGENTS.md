@@ -132,7 +132,7 @@ npm run start           # build:shared + vite dev server for webApp
 
 | Area | Suggested | Why | Applies to | Status |
 |---|---|---|---|---|
-| Networking | Ktor client + kotlinx.serialization | Official multiplatform HTTP client, auto engine selection per target | `sharedLogic`, all targets | INSTALLED (issue #7: `data.BraveSearchTool`/`data.FirecrawlSearchTool`, Koog LLM clients) |
+| Networking | Ktor client + kotlinx.serialization | Official multiplatform HTTP client, auto engine selection per target | `sharedLogic`, all targets | INSTALLED (issue #7: `data.FirecrawlSearchTool`, Koog LLM clients) |
 | DI | Koin, prefer Koin Annotations (KSP) | Compile-time safe bindings; catches missing bindings at build time, useful for AI-agent-driven edits | `sharedLogic` | NOT INSTALLED |
 | Persistence | SQLDelight or Room (KMP) | SQL-first vs annotation-based; Room only gained JS/WasmJS support in Room 3.0 (03/2026) — previously SQLDelight was the only option for this repo's `js` target. Both support JS/WasmJS now — pick per team preference | `sharedLogic` | NOT INSTALLED |
 | Preferences | multiplatform-settings | Simple key-value store, supports all targets including JS | `sharedLogic` | NOT INSTALLED |

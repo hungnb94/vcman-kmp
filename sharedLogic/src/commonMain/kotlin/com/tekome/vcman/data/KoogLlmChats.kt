@@ -92,7 +92,7 @@ internal class KoogLlmChat(
 
 /**
  * The single Koog tool adapter for every [WebSearchTool] implementation. A new search backend
- * (Brave/Firecrawl/future) never needs its own Koog wiring: it only implements [WebSearchTool],
+ * (Firecrawl/future) never needs its own Koog wiring: it only implements [WebSearchTool],
  * and this adapter exposes it to the agent uniformly.
  */
 internal class WebSearchKoogTool(
