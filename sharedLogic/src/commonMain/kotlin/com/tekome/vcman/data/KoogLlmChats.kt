@@ -18,22 +18,10 @@ import ai.koog.serialization.typeToken
 import kotlinx.serialization.Serializable
 import kotlin.reflect.typeOf
 
-/**
- * The single file allowed to import `ai.koog.*` (see Architecture in the implementation plan).
- * Every other file in this module talks to [LlmChat]/[WebSearchTool] only, so a Koog API change
- * is contained here.
- */
-
-/** A Koog `HttpClient.Factory`, reused across calls so LLM requests share one engine/connection pool. */
 private val koogHttpClientFactory = KtorKoogHttpClient.Factory()
 
 private const val MAX_AGENT_ITERATIONS = 20
 
-/**
- * The single, exhaustive extension point for the LLM-provider axis. `when` has no `else` branch:
- * adding [LlmProvider.Anthropic]/[LlmProvider.OpenAI]'s sibling later is a compile error until a
- * branch is added here — the "provider missing its wiring" state cannot exist at runtime.
- */
 internal fun koogChatFactoryFor(provider: LlmProvider): LlmChatFactory =
     when (provider) {
         LlmProvider.Anthropic -> {
@@ -55,14 +43,9 @@ internal fun koogChatFactoryFor(provider: LlmProvider): LlmChatFactory =
         }
     }
 
-/**
- * Extends [errorRules] with Koog-specific failure types, so a raw Koog exception (e.g.
- * [AIAgentException] hitting [MAX_AGENT_ITERATIONS]) never leaks past
- * [KoogScoreAnalysisService.analyze] as an un-[AnalysisException] type.
- */
 internal val koogErrorRules: List<(Throwable) -> AnalysisError?> =
     errorRules +
-        listOf<(Throwable) -> AnalysisError?>(
+        listOf(
             { e -> (e as? KoogHttpClientException)?.let { AnalysisError.ApiError(it.statusCode) } },
             { e -> (e as? AIAgentException)?.let { AnalysisError.InvalidResponse(it.message ?: "Agent failed to produce a response") } },
         )
@@ -88,10 +71,6 @@ internal class KoogLlmChat(
                 systemPrompt = systemPrompt,
                 maxIterations = MAX_AGENT_ITERATIONS,
             )
-        // `client` is constructed fresh per call (see `koogChatFactoryFor`) and owns its own
-        // `KoogHttpClient`/connection pool; `LLMClient` is `AutoCloseable` and its contract says to
-        // "always close it when finished", so it must be closed here or every `analyze()` call leaks
-        // an HTTP client.
         return try {
             agent.run(userPrompt)
         } finally {
@@ -100,19 +79,9 @@ internal class KoogLlmChat(
     }
 }
 
-/**
- * The single Koog tool adapter for every [WebSearchTool] implementation. A new search backend
- * (Firecrawl/future) never needs its own Koog wiring: it only implements [WebSearchTool],
- * and this adapter exposes it to the agent uniformly.
- */
 internal class WebSearchKoogTool(
     private val delegate: WebSearchTool,
 ) : SimpleTool<WebSearchKoogTool.Args>(
-        // `typeToken<Args>()` (Koog's own reified inline factory) is avoided on purpose: Koog's
-        // android artifact is compiled targeting JVM 17, and inlining that bytecode conflicts
-        // with this module's JVM 11 target. `typeOf<Args>()` is a kotlin-stdlib inline function
-        // (safe to inline into JVM 11 bytecode); `typeToken(KType)` is a regular (non-inline)
-        // Koog function, so no Koog bytecode gets inlined across the JVM-target boundary either.
         argsType = typeToken(typeOf<Args>()),
         name = "web_search",
         description =

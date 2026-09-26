@@ -11,7 +11,6 @@ import kotlin.test.assertIs
 class KoogLlmChatsTest {
     @Test
     fun koogChatFactoryFor_returnsFactoryForEveryProvider() {
-        // Constructing a client must not perform any network I/O, so this is safe without a key.
         val anthropicChat = koogChatFactoryFor(LlmProvider.Anthropic).create(ApiKey("key"))
         val openAiChat = koogChatFactoryFor(LlmProvider.OpenAI).create(ApiKey("key"))
 
@@ -55,9 +54,6 @@ class KoogLlmChatsTest {
 
     @Test
     fun koogErrorRules_classifiesAgentGivingUpAsInvalidResponse() {
-        // The agent hitting its iteration cap without finishing (e.g. MAX_AGENT_ITERATIONS with a
-        // slow-converging tool loop) must not leak a raw Koog exception out of `analyze` — it should
-        // classify the same way any other "LLM never produced a usable answer" failure does.
         val exception = AIAgentMaxNumberOfIterationsReachedException(20)
 
         val error = classify(exception, koogErrorRules)
@@ -67,10 +63,6 @@ class KoogLlmChatsTest {
 
     @Test
     fun koogErrorRules_classifiesKoogHttpClientExceptionAsApiError() {
-        // The Ktor-backed Koog HTTP client (see KtorKoogHttpClient) reports every non-2xx LLM
-        // provider response as a KoogHttpClientException, not Ktor's own ResponseException, so this
-        // rule is the only thing standing between a 401/429/500 from Anthropic/OpenAI and a raw,
-        // unclassified exception leaking out of `analyze`.
         val exception = KoogHttpClientException(clientName = "anthropic", statusCode = 429)
 
         val error = classify(exception, koogErrorRules)

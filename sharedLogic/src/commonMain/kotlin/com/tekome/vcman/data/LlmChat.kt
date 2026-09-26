@@ -1,10 +1,5 @@
 package com.tekome.vcman.data
 
-/**
- * Minimal port the service needs from an LLM: send a system/user prompt (with the tools available
- * for this call), get the final text response back. Every Koog-specific type lives behind this
- * port's implementation in `KoogLlmChats.kt`; nothing else in this module depends on Koog.
- */
 internal fun interface LlmChat {
     suspend fun complete(
         systemPrompt: String,
@@ -17,8 +12,4 @@ internal fun interface LlmChatFactory {
     fun create(apiKey: ApiKey): LlmChat
 }
 
-/**
- * Resolves which [LlmChatFactory] backs a given [LlmProvider]. Injectable so tests can supply a
- * fake without touching Koog; see [koogChatFactoryFor] for the default implementation.
- */
 internal typealias LlmChatResolver = (LlmProvider) -> LlmChatFactory
