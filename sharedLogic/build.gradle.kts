@@ -45,6 +45,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            api(libs.androidx.lifecycle.viewmodel)
             implementation(libs.koog.agents)
             implementation(libs.koog.promptExecutor.anthropicClient)
             implementation(libs.koog.promptExecutor.openaiClient)
