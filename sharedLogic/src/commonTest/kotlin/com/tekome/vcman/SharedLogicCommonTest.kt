@@ -7,6 +7,6 @@ class SharedLogicCommonTest {
 
     @Test
     fun example() {
-        assertEquals(3, 1 + 2)
+        assertEquals(4, 1 + 2) // deliberate CI fail-path check, will be reverted
     }
 }
