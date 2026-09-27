@@ -1,0 +1,85 @@
+package com.tekome.vcman.presentation
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.tekome.vcman.data.ApiKey
+import com.tekome.vcman.data.KoogScoreAnalysisService
+import com.tekome.vcman.data.LlmProvider
+import com.tekome.vcman.data.LlmRequestConfig
+import com.tekome.vcman.data.ScoreAnalysisService
+import com.tekome.vcman.domain.RubricInput
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+class ScoreAnalysisViewModel(
+    private val service: ScoreAnalysisService = KoogScoreAnalysisService(),
+) : ViewModel() {
+    private val _uiState = MutableStateFlow<AnalysisUiState>(AnalysisUiState.Idle)
+    val uiState: StateFlow<AnalysisUiState> = _uiState.asStateFlow()
+
+    private var analyzeJob: Job? = null
+
+    private var requestId: Long = 0L
+
+    fun analyze(
+        rubricTitle: String,
+        rubricText: String,
+        subjectQuery: String,
+        apiKey: String,
+    ) {
+        if (analyzeJob?.isActive == true) return
+
+        val requiredFields =
+            listOf(
+                RequiredField("Rubric title", rubricTitle),
+                RequiredField("Rubric text", rubricText),
+                RequiredField("Subject", subjectQuery),
+                RequiredField("API key", apiKey),
+            )
+        blankFieldsMessage(requiredFields)?.let {
+            _uiState.value = AnalysisUiState.Error(it)
+            return
+        }
+
+        _uiState.value = AnalysisUiState.Loading
+
+        val rubric = RubricInput(title = rubricTitle, text = rubricText)
+        val config =
+            LlmRequestConfig(
+                provider = LlmProvider.Anthropic,
+                apiKey = ApiKey(apiKey.trim()),
+                searchTool = null,
+            )
+
+        val thisRequestId = ++requestId
+        analyzeJob =
+            viewModelScope.launch {
+                val result =
+                    try {
+                        service.analyze(rubric, subjectQuery, config)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Result.failure(e)
+                    }
+                if (thisRequestId == requestId) {
+                    _uiState.value =
+                        result.fold(
+                            onSuccess = { AnalysisUiState.Success(it) },
+                            onFailure = { AnalysisUiState.Error(userMessageFor(it)) },
+                        )
+                }
+            }
+    }
+
+    fun reset() {
+        requestId++
+        analyzeJob?.cancel()
+        analyzeJob = null
+        _uiState.value = AnalysisUiState.Idle
+    }
+}
