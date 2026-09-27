@@ -35,7 +35,7 @@ Reference for AI agents and developers working in this repo. Read `## Boundaries
 
 Koog's `android`-targeted artifacts are compiled against JVM 17 bytecode; calling one of Koog's own `inline` reified functions (e.g. `ai.koog.serialization.typeToken<T>()`) from `sharedLogic` would embed that JVM 17 bytecode into a JVM 11 compilation unit and fail to compile. Prefer the non-inline overload (e.g. `typeToken(kotlin.reflect.typeOf<T>())`) when Koog offers one; see `KoogLlmChats.kt` for a worked example.
 
-Not present yet: DI, persistence, navigation, and logging libraries. Networking (Ktor + kotlinx.serialization) and an LLM agent framework (Koog) were added in `sharedLogic` for issue #7 (`data.ScoreAnalysisService`) — see `## Recommended additions` below for what is still missing. No Gradle lint plugin (only an IDE-level ktlint setting in `.idea/ktlint-plugin.xml`). No CI configuration (no `.github` directory).
+Not present yet: DI, persistence, navigation, and logging libraries. Networking (Ktor + kotlinx.serialization) and an LLM agent framework (Koog) were added in `sharedLogic` for issue #7 (`data.ScoreAnalysisService`) — see `## Recommended additions` below for what is still missing. No Gradle lint plugin (only an IDE-level ktlint setting in `.idea/ktlint-plugin.xml`). CI is configured via `.github/workflows/ci.yml` (runs the `## Test` suites on PRs to `main` and pushes to `main`); see `## Recommended additions` below.
 
 ## Project structure
 
@@ -116,6 +116,8 @@ npm run start           # build:shared + vite dev server for webApp
 | `webTest` | `jsTest` |
 | `iosTest` | `iosSimulatorArm64Test` |
 
+CI (`.github/workflows/ci.yml`) runs these same three commands as three independent jobs (`android-jvm`, `js`, `ios`) on every PR/push to `main`. Each job's `name:` is also its PR status check name — do not rename a job without checking whether it's been set as a required status check in GitHub branch protection first.
+
 ## Code style
 
 - `kotlin.code.style=official` (4-space indent), set in `gradle.properties`.
@@ -128,7 +130,7 @@ npm run start           # build:shared + vite dev server for webApp
 
 ## Recommended additions (not installed)
 
-**Everything in this section is NOT installed except the Networking row below (installed for issue #7). Do not assume any other library listed here is available in the code.**
+**Everything in this section is NOT installed except the Networking and CI/CD rows below (installed for issue #7 and the CI workflow, respectively). Do not assume any other library listed here is available in the code.**
 
 | Area | Suggested | Why | Applies to | Status |
 |---|---|---|---|---|
@@ -140,7 +142,7 @@ npm run start           # build:shared + vite dev server for webApp
 | Logging | Kermit or Napier | Multiplatform logging; Kermit adds crash-reporting integrations | `sharedLogic` | NOT INSTALLED |
 | Lint/format | ktlint + Compose Rules ruleset | Catches Compose-specific pitfalls; detekt/Spotless optional | `sharedUI` (Compose rules), all Kotlin code (ktlint) | NOT INSTALLED |
 | Testing | Turbine (on top of existing kotlin-test) | Deterministic `Flow`/`StateFlow` testing, add when Flow-based logic exists | `sharedLogic` | NOT INSTALLED |
-| CI/CD | GitHub Actions: Linux runner for Android/JVM/JS tests, separate macOS runner for iOS | Standard split-runner setup for KMP; Fastlane/code signing/SBOM only once real releases exist | repo-wide | NOT INSTALLED |
+| CI/CD | GitHub Actions: Linux runner for Android/JVM/JS tests, separate macOS runner for iOS | Standard split-runner setup for KMP; Fastlane/code signing/SBOM only once real releases exist | repo-wide | INSTALLED (`.github/workflows/ci.yml`: `android-jvm` / `js` / `ios` jobs, runs the `## Test` suites) |
 
 Versions are intentionally not pinned here. Use the latest stable release and verify compatibility with Kotlin 2.4.20 / Compose Multiplatform 1.12.0 / AGP 9.1.1 before adding anything to `gradle/libs.versions.toml`.
 
@@ -168,4 +170,4 @@ Versions are intentionally not pinned here. Use the latest stable release and ve
 - Assume a library from `## Recommended additions` is already installed.
 
 ---
-Last verified against the repo on 2026-09-23 (Kotlin 2.4.20, AGP 9.1.1, Compose Multiplatform 1.12.0, Koog 1.3.0, Ktor 3.3.3).
+Last verified against the repo on 2026-09-27 (Kotlin 2.4.20, AGP 9.1.1, Compose Multiplatform 1.12.0, Koog 1.3.0, Ktor 3.3.3).
