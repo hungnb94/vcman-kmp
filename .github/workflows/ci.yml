@@ -1,11 +1,3 @@
-# Runs the project's existing Gradle test suites (Android/JVM host tests, JS
-# browser tests, iOS simulator tests) as a quality gate on every PR/push to
-# `main`. See AGENTS.md ## Test for the underlying Gradle task names, and
-# ## Recommended additions > CI/CD for background.
-#
-# NOTE: the job `name:` values below (Android/JVM tests, JS tests, iOS tests)
-# become the PR status check names. If branch protection is later configured
-# with these as required checks, renaming a job here will orphan that rule.
 name: CI
 
 on:
@@ -14,14 +6,11 @@ on:
   push:
     branches: [main]
 
-# Least-privilege token: jobs only read code, run tests, and upload artifacts.
 permissions:
   contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  # Only cancel superseded runs on PRs (e.g. force-push/fixup); never cancel a
-  # run already in flight on `main`.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -34,21 +23,10 @@ jobs:
 
       - uses: ./.github/actions/gradle-setup
 
-      # The runner image's preinstalled Android SDK platforms/build-tools are
-      # not a stable contract (GitHub periodically prunes older ones), so
-      # accept licenses and install the exact platform this repo compiles
-      # against explicitly instead of relying on whatever happens to be
-      # preinstalled.
       - name: Install Android SDK platform (compileSdk 37)
         shell: bash
         run: |
-          # `yes` is SIGPIPE'd once sdkmanager stops reading stdin (expected,
-          # not a real failure); `|| true` absorbs that under `set -o
-          # pipefail` without hiding a genuine sdkmanager error, which would
-          # still surface as a failure on the install command below.
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-          # compileSdk 37 ships as SDK Manager package "android-37.0" (not
-          # plain "android-37") on the ubuntu-24.04 runner image.
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0"
 
       - name: Run Android/JVM host tests
@@ -79,15 +57,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Pin the Xcode version instead of trusting the runner's default, so the
-      # Kotlin/Native toolchain behavior doesn't shift silently when GitHub
-      # changes the default Xcode on this image.
       - name: Select Xcode 26.6
         run: sudo xcode-select -s /Applications/Xcode_26.6.app
 
-      # gradle/actions/setup-gradle (in gradle-setup) only caches ~/.gradle;
-      # it does not cover the Kotlin/Native compiler + klib cache used by
-      # iosSimulatorArm64Test, so that is cached separately here.
       - name: Cache Kotlin/Native toolchain (~/.konan)
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -101,6 +73,3 @@ jobs:
 
       - if: always()
         uses: ./.github/actions/upload-test-reports
-
-  # Adding a new suite/target (e.g. wasmJs, a webApp test runner) means adding
-  # a new job here. The 3 jobs above are not touched.

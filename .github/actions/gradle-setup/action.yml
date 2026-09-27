@@ -13,11 +13,6 @@ runs:
       with:
         distribution: temurin
         java-version: "17"
-        # No `cache: gradle` here: gradle/actions/setup-gradle below already
-        # caches the Gradle User Home, and Gradle's own docs warn that running
-        # both at once "may interfere" with each other.
 
     - name: Set up Gradle (official cache for ~/.gradle)
       uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
-      # Cache writes are scoped to the default branch by default; pull requests
-      # only read from it, so PRs can't pollute each other's cache.
