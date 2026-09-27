@@ -23,7 +23,7 @@ internal class RequiredField(
  * at the call site - this function never needs to change.
  */
 internal fun blankFieldsMessage(fields: List<RequiredField>): String? {
-    val missing = fields.filter { it.value.isBlank() }.map { it.label }
+    val missing = fields.mapNotNull { field -> field.label.takeIf { field.value.isBlank() } }
     return if (missing.isEmpty()) null else "Please fill in: ${missing.joinToString(", ")}."
 }
 

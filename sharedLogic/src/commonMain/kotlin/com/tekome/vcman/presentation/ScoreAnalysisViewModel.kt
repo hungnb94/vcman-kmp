@@ -8,19 +8,13 @@ import com.tekome.vcman.data.LlmProvider
 import com.tekome.vcman.data.LlmRequestConfig
 import com.tekome.vcman.data.ScoreAnalysisService
 import com.tekome.vcman.domain.RubricInput
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/**
- * State machine for the score-analysis screen: pure state + orchestration, no UI code.
- *
- * - `analyze(...)` is ignored (no-op) while [uiState] is already [AnalysisUiState.Loading].
- * - `reset()` cancels any in-flight [analyze] job before returning to [AnalysisUiState.Idle], so a
- *   late-arriving result can never overwrite `Idle` with `Success`/`Error`.
- */
 class ScoreAnalysisViewModel(
     private val service: ScoreAnalysisService = KoogScoreAnalysisService(),
 ) : ViewModel() {
@@ -29,13 +23,15 @@ class ScoreAnalysisViewModel(
 
     private var analyzeJob: Job? = null
 
+    private var requestId: Long = 0L
+
     fun analyze(
         rubricTitle: String,
         rubricText: String,
         subjectQuery: String,
         apiKey: String,
     ) {
-        if (_uiState.value is AnalysisUiState.Loading) return
+        if (analyzeJob?.isActive == true) return
 
         val requiredFields =
             listOf(
@@ -55,26 +51,33 @@ class ScoreAnalysisViewModel(
         val config =
             LlmRequestConfig(
                 provider = LlmProvider.Anthropic,
-                apiKey = ApiKey(apiKey),
+                apiKey = ApiKey(apiKey.trim()),
                 searchTool = null,
             )
 
+        val thisRequestId = ++requestId
         analyzeJob =
             viewModelScope.launch {
-                // No try/catch here: ScoreAnalysisService.analyze always rethrows
-                // CancellationException instead of wrapping it in Result.failure (see
-                // data.runAnalysis), so a cancelled job simply stops before reaching the
-                // assignment below - it never overwrites a state set by reset().
-                val result = service.analyze(rubric, subjectQuery, config)
-                _uiState.value =
-                    result.fold(
-                        onSuccess = { AnalysisUiState.Success(it) },
-                        onFailure = { AnalysisUiState.Error(userMessageFor(it)) },
-                    )
+                val result =
+                    try {
+                        service.analyze(rubric, subjectQuery, config)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Result.failure(e)
+                    }
+                if (thisRequestId == requestId) {
+                    _uiState.value =
+                        result.fold(
+                            onSuccess = { AnalysisUiState.Success(it) },
+                            onFailure = { AnalysisUiState.Error(userMessageFor(it)) },
+                        )
+                }
             }
     }
 
     fun reset() {
+        requestId++
         analyzeJob?.cancel()
         analyzeJob = null
         _uiState.value = AnalysisUiState.Idle
