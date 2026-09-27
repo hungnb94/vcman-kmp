@@ -47,7 +47,9 @@ jobs:
           # pipefail` without hiding a genuine sdkmanager error, which would
           # still surface as a failure on the install command below.
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37"
+          # compileSdk 37 ships as SDK Manager package "android-37.0" (not
+          # plain "android-37") on the ubuntu-24.04 runner image.
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0"
 
       - name: Run Android/JVM host tests
         run: ./gradlew :sharedUI:testAndroidHostTest :sharedLogic:testAndroidHostTest --continue
