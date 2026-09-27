@@ -116,7 +116,7 @@ npm run start           # build:shared + vite dev server for webApp
 | `webTest` | `jsTest` |
 | `iosTest` | `iosSimulatorArm64Test` |
 
-CI (`.github/workflows/ci.yml`) runs these same three commands as three independent jobs (`android-jvm`, `js`, `ios`) on every PR/push to `main`. Each job's `name:` is also its PR status check name — do not rename a job without checking whether it's been set as a required status check in GitHub branch protection first.
+CI (`.github/workflows/ci.yml`) runs these same three test suites as three independent jobs (`android-jvm`, `js`, `ios`) on every PR/push to `main`; the `android-jvm` and `ios` jobs additionally pass `--continue` so one test failure doesn't stop the rest of the suite from running. Each job's `name:` is also its PR status check name — do not rename a job without checking whether it's been set as a required status check in GitHub branch protection first.
 
 ## Code style
 
