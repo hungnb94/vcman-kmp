@@ -11,14 +11,6 @@ import com.tekome.vcman.presentation.AnalysisUiState
 import com.tekome.vcman.presentation.ScoreAnalysisViewModel
 import com.tekome.vcman.ui.SetupScreen
 
-/**
- * State owner of the app: creates/retrieves [ScoreAnalysisViewModel] through the composition's
- * `ViewModelStore` and collects [ScoreAnalysisViewModel.uiState] in a lifecycle-aware way.
- *
- * This is an interim entry point (issue #32): it only renders [SetupScreen]. Once
- * `ScoreReportScreen` (#11) lands, #12 will add screen switching in [AppContent] without needing
- * to touch how the ViewModel is created or how state is collected here.
- */
 @Composable
 fun App(viewModel: ScoreAnalysisViewModel = viewModel { ScoreAnalysisViewModel() }) {
     MaterialTheme {
@@ -31,11 +23,6 @@ fun App(viewModel: ScoreAnalysisViewModel = viewModel { ScoreAnalysisViewModel()
     }
 }
 
-/**
- * Stateless content renderer: picks which screen to show for the current [uiState]. Does not know
- * that a ViewModel exists. Adding a new screen for a given state (e.g. `is Success ->
- * ScoreReportScreen(...)` for #12) only requires a new branch here.
- */
 @Composable
 internal fun AppContent(
     uiState: AnalysisUiState,
@@ -43,7 +30,6 @@ internal fun AppContent(
     modifier: Modifier = Modifier,
 ) {
     when (uiState) {
-        // #12 will split this out: is AnalysisUiState.Success -> ScoreReportScreen(report = uiState.report, ...)
         AnalysisUiState.Idle,
         AnalysisUiState.Loading,
         is AnalysisUiState.Error,
@@ -59,10 +45,8 @@ internal fun AppContent(
     }
 }
 
-/** True only while an analysis request is in flight. */
 internal val AnalysisUiState.isLoading: Boolean
     get() = this is AnalysisUiState.Loading
 
-/** The error message when [AnalysisUiState] is [AnalysisUiState.Error], `null` otherwise. */
 internal val AnalysisUiState.errorMessageOrNull: String?
     get() = (this as? AnalysisUiState.Error)?.message
