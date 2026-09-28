@@ -15,7 +15,7 @@ Reference for AI agents and developers working in this repo. Read `## Boundaries
 |---|---|
 | Kotlin | 2.4.20 |
 | AGP (Android Gradle Plugin) | 9.1.1 |
-| Compose Multiplatform | 1.12.0 |
+| Compose Multiplatform | 1.12.1 |
 | Material3 (Compose) | 1.12.0-alpha03 |
 | AndroidX Lifecycle (KMP artifacts) | 2.11.0 |
 | kotlin-wrappers (JS/React interop) | 2026.9.2 |
@@ -30,6 +30,8 @@ Reference for AI agents and developers working in this repo. Read `## Boundaries
 | Ktor client | 3.3.3 |
 | kotlinx.serialization | 1.11.0 |
 | kotlinx.coroutines (`kotlinx-coroutines-test`, `commonTest` only) | 1.11.0 |
+| Compose UI test (`org.jetbrains.compose.ui:ui-test`, `sharedUI` `commonTest` only) | 1.12.1 |
+| Robolectric (`sharedUI` `androidHostTest` only, backs `runComposeUiTest` on the JVM) | 4.15.1 |
 
 `gradle/libs.versions.toml` is the single source of truth for JVM/Kotlin dependency versions; if this table disagrees with it, **the catalog wins**. `webApp/package.json` is the source of truth for web dependency versions. `^x.y.z` values are npm semver ranges copied from `webApp/package.json` (minimum version, not an exact pin) — all other rows are exact pinned versions from `gradle/libs.versions.toml`.
 
@@ -144,7 +146,7 @@ CI (`.github/workflows/ci.yml`) runs these same three test suites as three indep
 | Testing | Turbine (on top of existing kotlin-test) | Deterministic `Flow`/`StateFlow` testing, add when Flow-based logic exists | `sharedLogic` | NOT INSTALLED |
 | CI/CD | GitHub Actions: Linux runner for Android/JVM/JS tests, separate macOS runner for iOS | Standard split-runner setup for KMP; Fastlane/code signing/SBOM only once real releases exist | repo-wide | INSTALLED (`.github/workflows/ci.yml`: `android-jvm` / `js` / `ios` jobs, runs the `## Test` suites) |
 
-Versions are intentionally not pinned here. Use the latest stable release and verify compatibility with Kotlin 2.4.20 / Compose Multiplatform 1.12.0 / AGP 9.1.1 before adding anything to `gradle/libs.versions.toml`.
+Versions are intentionally not pinned here. Use the latest stable release and verify compatibility with Kotlin 2.4.20 / Compose Multiplatform 1.12.1 / AGP 9.1.1 before adding anything to `gradle/libs.versions.toml`.
 
 ## Boundaries
 
@@ -170,4 +172,4 @@ Versions are intentionally not pinned here. Use the latest stable release and ve
 - Assume a library from `## Recommended additions` is already installed.
 
 ---
-Last verified against the repo on 2026-09-27 (Kotlin 2.4.20, AGP 9.1.1, Compose Multiplatform 1.12.0, Koog 1.3.0, Ktor 3.3.3).
+Last verified against the repo on 2026-09-27 (Kotlin 2.4.20, AGP 9.1.1, Compose Multiplatform 1.12.1, Koog 1.3.0, Ktor 3.3.3).
