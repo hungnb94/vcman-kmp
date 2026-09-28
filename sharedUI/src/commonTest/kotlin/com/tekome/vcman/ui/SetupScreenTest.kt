@@ -24,12 +24,10 @@ import kotlin.test.assertTrue
 class SetupScreenTest : ComposeUiTestRunner() {
     private val fakeSample = SampleRubric(title = "Demo", text = "A\nB")
 
-    private fun recordedAnalyzeCalls(): MutableList<List<String>> = mutableListOf()
-
     @Test
     fun analyze_forwardsCurrentValuesExactlyOnce() =
         runComposeUiTest {
-            val calls = recordedAnalyzeCalls()
+            val calls = mutableListOf<List<String>>()
             setContent {
                 SetupScreen(
                     loading = false,
@@ -52,7 +50,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
     @Test
     fun analyze_withEmptyFields_stillForwards() =
         runComposeUiTest {
-            val calls = recordedAnalyzeCalls()
+            val calls = mutableListOf<List<String>>()
             setContent {
                 SetupScreen(
                     loading = false,
@@ -71,7 +69,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
     @Test
     fun loadSample_fillsTitleAndText_andStaysEditable() =
         runComposeUiTest {
-            val calls = recordedAnalyzeCalls()
+            val calls = mutableListOf<List<String>>()
             setContent {
                 SetupScreen(
                     loading = false,
@@ -111,7 +109,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
     @Test
     fun loading_disablesAnalyze_andShowsIndicator() =
         runComposeUiTest {
-            val calls = recordedAnalyzeCalls()
+            val calls = mutableListOf<List<String>>()
             setContent {
                 SetupScreen(
                     loading = true,

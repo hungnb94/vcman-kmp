@@ -163,10 +163,8 @@ fun SetupScreen(
                     strokeWidth = 2.dp,
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("Phan tich")
-            } else {
-                Text("Phan tich")
             }
+            Text("Phan tich")
         }
     }
 }

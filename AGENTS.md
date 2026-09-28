@@ -146,7 +146,7 @@ CI (`.github/workflows/ci.yml`) runs these same three test suites as three indep
 | Testing | Turbine (on top of existing kotlin-test) | Deterministic `Flow`/`StateFlow` testing, add when Flow-based logic exists | `sharedLogic` | NOT INSTALLED |
 | CI/CD | GitHub Actions: Linux runner for Android/JVM/JS tests, separate macOS runner for iOS | Standard split-runner setup for KMP; Fastlane/code signing/SBOM only once real releases exist | repo-wide | INSTALLED (`.github/workflows/ci.yml`: `android-jvm` / `js` / `ios` jobs, runs the `## Test` suites) |
 
-Versions are intentionally not pinned here. Use the latest stable release and verify compatibility with Kotlin 2.4.20 / Compose Multiplatform 1.12.0 / AGP 9.1.1 before adding anything to `gradle/libs.versions.toml`.
+Versions are intentionally not pinned here. Use the latest stable release and verify compatibility with Kotlin 2.4.20 / Compose Multiplatform 1.12.1 / AGP 9.1.1 before adding anything to `gradle/libs.versions.toml`.
 
 ## Boundaries
 
@@ -172,4 +172,4 @@ Versions are intentionally not pinned here. Use the latest stable release and ve
 - Assume a library from `## Recommended additions` is already installed.
 
 ---
-Last verified against the repo on 2026-09-27 (Kotlin 2.4.20, AGP 9.1.1, Compose Multiplatform 1.12.0, Koog 1.3.0, Ktor 3.3.3).
+Last verified against the repo on 2026-09-27 (Kotlin 2.4.20, AGP 9.1.1, Compose Multiplatform 1.12.1, Koog 1.3.0, Ktor 3.3.3).
