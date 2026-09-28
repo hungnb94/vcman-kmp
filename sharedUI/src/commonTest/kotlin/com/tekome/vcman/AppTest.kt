@@ -8,7 +8,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.runComposeUiTest
+import androidx.compose.ui.test.v2.runComposeUiTest
 import com.tekome.vcman.data.LlmRequestConfig
 import com.tekome.vcman.data.ScoreAnalysisService
 import com.tekome.vcman.domain.ProjectScoreReport
@@ -21,24 +21,21 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** Pure projection from [AnalysisUiState] to [SetupScreenTags]-consumable props. No Compose needed. */
+private val fixtureReport =
+    ProjectScoreReport(
+        subjectName = "S",
+        rubricTitle = "R",
+        overallSummary = "",
+        sections = emptyList(),
+        generatedAtEpochMillis = 0L,
+    )
+
 class AnalysisUiStateProjectionTest {
     private data class Expected(
         val loading: Boolean,
         val error: String?,
     )
 
-    private val fixtureReport =
-        ProjectScoreReport(
-            subjectName = "S",
-            rubricTitle = "R",
-            overallSummary = "",
-            sections = emptyList(),
-            generatedAtEpochMillis = 0L,
-        )
-
-    // Table of state -> expected props. Adding a new AnalysisUiState branch means adding one row
-    // here, not a new test method.
     private val cases: List<Pair<AnalysisUiState, Expected>> =
         listOf(
             AnalysisUiState.Idle to Expected(loading = false, error = null),
@@ -56,7 +53,6 @@ class AnalysisUiStateProjectionTest {
     }
 }
 
-/** [AppContent] is stateless: drive it directly with [AnalysisUiState] values, no ViewModel/network. */
 @OptIn(ExperimentalTestApi::class)
 class AppContentTest : ComposeUiTestRunner() {
     @Test
@@ -108,14 +104,6 @@ class AppContentTest : ComposeUiTestRunner() {
     @Test
     fun success_showsNeitherLoadingNorError() =
         runComposeUiTest {
-            val fixtureReport =
-                ProjectScoreReport(
-                    subjectName = "S",
-                    rubricTitle = "R",
-                    overallSummary = "",
-                    sections = emptyList(),
-                    generatedAtEpochMillis = 0L,
-                )
             setContent {
                 AppContent(uiState = AnalysisUiState.Success(fixtureReport), onAnalyze = { _, _, _, _ -> })
             }
@@ -126,7 +114,6 @@ class AppContentTest : ComposeUiTestRunner() {
         }
 }
 
-/** Critical path: App() -> real ScoreAnalysisViewModel -> SetupScreen, only the service is faked. */
 @OptIn(ExperimentalTestApi::class)
 class AppWiringTest : ComposeUiTestRunner() {
     private class NeverCalledService : ScoreAnalysisService {
