@@ -63,6 +63,12 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.compose.uiTest)
+        }
+        getByName("androidHostTest") {
+            dependencies {
+                implementation(libs.robolectric)
+            }
         }
     }
 }
