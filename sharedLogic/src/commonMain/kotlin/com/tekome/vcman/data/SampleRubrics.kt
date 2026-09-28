@@ -1,9 +1,5 @@
 package com.tekome.vcman.data
 
-/**
- * A rubric's [title] and [text] travel together so the "load sample" affordance in `sharedUI`
- * can never fill one rubric's title alongside another rubric's text.
- */
 data class SampleRubric(
     val title: String,
     val text: String,
@@ -14,10 +10,6 @@ data class SampleRubric(
     }
 }
 
-/**
- * Static catalog of demo rubrics. Adding another sample means adding another [SampleRubric]
- * value here - no other code needs to change (data-driven extension, not a branch on a name).
- */
 object SampleRubrics {
     val cryptoBenchScore =
         SampleRubric(

@@ -47,29 +47,6 @@ internal object SetupScreenTags {
     const val ERROR = "setup_error"
 }
 
-/**
- * Screen 1/2 of the POC: rubric setup, subject, and API key in one screen.
- *
- * Stateless except for the local text-field state below: [loading] and [error] are read directly
- * from the caller's props (see `AnalysisUiState` in `sharedLogic`) and are never copied into
- * local state, so there is no stale ("ghost") error left over from a previous request. Tapping
- * "Phan tich" simply forwards the current field values through [onAnalyze] - this composable does
- * not call any service/ViewModel and does not apply business validation itself (that lives in
- * `ScoreAnalysisViewModel.analyze`).
- *
- * The four fields intentionally use `remember`, not `rememberSaveable`: `rememberSaveable` writes
- * into the saved-instance-state `Bundle`, which the OS may persist to disk for process-death
- * recovery. For [apiKey] that would violate the "session-only, no persistence" requirement; for
- * consistency the other three fields follow the same rule (and `rubricText` can be long enough to
- * risk `TransactionTooLargeException` if it were ever saved). The trade-off is that field content
- * is lost on an Android configuration change (e.g. rotation) - acceptable for this iOS-focused POC.
- *
- * @param onAnalyze called with the current `(rubricTitle, rubricText, subject, apiKey)` values,
- *   in that order, exactly once per tap while not [loading]. Matches the signature of
- *   `ScoreAnalysisViewModel::analyze`, so a caller can pass that method reference directly.
- * @param sampleRubric filled into the rubric fields by "Load rubric mau"; defaults to the built-in
- *   [SampleRubrics.cryptoBenchScore]. Injectable so tests/previews do not depend on that data.
- */
 @Composable
 fun SetupScreen(
     modifier: Modifier = Modifier,
@@ -81,7 +58,7 @@ fun SetupScreen(
     var rubricTitle by remember { mutableStateOf("") }
     var rubricText by remember { mutableStateOf("") }
     var subject by remember { mutableStateOf("") }
-    var apiKey by remember { mutableStateOf("") } // remember only - see KDoc above, never log this.
+    var apiKey by remember { mutableStateOf("") } // remember only - never log this.
 
     Column(
         modifier =

@@ -1,12 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Merged into the androidHostTest (Robolectric) test manifest only. `runComposeUiTest` needs a
-  host Activity to attach Compose content to; androidx.activity.ComponentActivity is the standard
-  activity requested by Compose's own test infrastructure (normally supplied via the
-  `androidx.compose.ui:ui-test-manifest` artifact). Declaring it directly here avoids adding that
-  extra dependency (see AGENTS.md "Ask first" - dependency additions require user approval, and
-  only `compose.uiTest` + `robolectric` were approved for this story).
--->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
         <activity
