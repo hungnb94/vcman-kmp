@@ -43,7 +43,8 @@ data class SetupInput(
     val subject: String = "",
     val apiKey: String = "",
 ) {
-    override fun toString(): String = "SetupInput(rubricTitle=$rubricTitle, rubricText=$rubricText, subject=$subject, apiKey=***)"
+    override fun toString(): String =
+        "SetupInput(rubricTitle=$rubricTitle, rubricText=$rubricText, subject=$subject, apiKey=***)"
 }
 
 /** Stable node identifiers for [SetupScreen], so tests do not depend on user-visible labels. */
