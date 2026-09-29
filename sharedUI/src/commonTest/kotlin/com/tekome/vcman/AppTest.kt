@@ -1,6 +1,12 @@
 package com.tekome.vcman
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
@@ -9,6 +15,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.text.AnnotatedString
 import com.tekome.vcman.data.LlmRequestConfig
 import com.tekome.vcman.data.ScoreAnalysisService
 import com.tekome.vcman.domain.ProjectScoreReport
@@ -16,6 +23,7 @@ import com.tekome.vcman.domain.RubricInput
 import com.tekome.vcman.presentation.AnalysisUiState
 import com.tekome.vcman.presentation.ScoreAnalysisViewModel
 import com.tekome.vcman.ui.ComposeUiTestRunner
+import com.tekome.vcman.ui.ScoreReportScreenTags
 import com.tekome.vcman.ui.SetupScreenTags
 import kotlinx.coroutines.CompletableDeferred
 import kotlin.test.Test
@@ -63,6 +71,7 @@ class AppContentTest : ComposeUiTestRunner() {
                 AppContent(
                     uiState = AnalysisUiState.Idle,
                     onAnalyze = { title, text, subject, apiKey -> calls += listOf(title, text, subject, apiKey) },
+                    onAnalyzeAgain = {},
                 )
             }
 
@@ -82,7 +91,7 @@ class AppContentTest : ComposeUiTestRunner() {
     fun loading_disablesAnalyze_andShowsIndicator() =
         runComposeUiTest {
             setContent {
-                AppContent(uiState = AnalysisUiState.Loading, onAnalyze = { _, _, _, _ -> })
+                AppContent(uiState = AnalysisUiState.Loading, onAnalyze = { _, _, _, _ -> }, onAnalyzeAgain = {})
             }
 
             onNodeWithTag(SetupScreenTags.LOADING).assertExists()
@@ -93,7 +102,11 @@ class AppContentTest : ComposeUiTestRunner() {
     fun error_showsMessage_andKeepsAnalyzeEnabled() =
         runComposeUiTest {
             setContent {
-                AppContent(uiState = AnalysisUiState.Error("Rate limited"), onAnalyze = { _, _, _, _ -> })
+                AppContent(
+                    uiState = AnalysisUiState.Error("Rate limited"),
+                    onAnalyze = { _, _, _, _ -> },
+                    onAnalyzeAgain = {},
+                )
             }
 
             onNodeWithTag(SetupScreenTags.ERROR).assertTextEquals("Rate limited")
@@ -102,15 +115,79 @@ class AppContentTest : ComposeUiTestRunner() {
         }
 
     @Test
-    fun success_showsNeitherLoadingNorError() =
+    fun success_showsScoreReport_notSetup() =
         runComposeUiTest {
             setContent {
-                AppContent(uiState = AnalysisUiState.Success(fixtureReport), onAnalyze = { _, _, _, _ -> })
+                AppContent(
+                    uiState = AnalysisUiState.Success(fixtureReport),
+                    onAnalyze = { _, _, _, _ -> },
+                    onAnalyzeAgain = {},
+                )
             }
 
-            onNodeWithTag(SetupScreenTags.LOADING).assertDoesNotExist()
-            onNodeWithTag(SetupScreenTags.ERROR).assertDoesNotExist()
-            onNodeWithTag(SetupScreenTags.ANALYZE).assertIsEnabled()
+            onNodeWithTag(ScoreReportScreenTags.HEADER).assertExists()
+            onNodeWithTag(SetupScreenTags.ANALYZE).assertDoesNotExist()
+        }
+
+    @Test
+    fun success_analyzeAgain_forwardsCallbackOnce() =
+        runComposeUiTest {
+            var calls = 0
+            setContent {
+                AppContent(
+                    uiState = AnalysisUiState.Success(fixtureReport),
+                    onAnalyze = { _, _, _, _ -> },
+                    onAnalyzeAgain = { calls++ },
+                )
+            }
+
+            onNodeWithTag(ScoreReportScreenTags.ANALYZE_AGAIN).performScrollTo().performClick()
+
+            assertEquals(1, calls)
+        }
+
+    @Test
+    fun roundTrip_preservesAllFourInputs() =
+        runComposeUiTest {
+            var state by mutableStateOf<AnalysisUiState>(AnalysisUiState.Idle)
+            val analyzeCalls = mutableListOf<List<String>>()
+            setContent {
+                AppContent(
+                    uiState = state,
+                    onAnalyze = { title, text, subject, apiKey ->
+                        analyzeCalls += listOf(title, text, subject, apiKey)
+                    },
+                    onAnalyzeAgain = { state = AnalysisUiState.Idle },
+                )
+            }
+
+            onNodeWithTag(SetupScreenTags.RUBRIC_TITLE).performTextInput("T")
+            onNodeWithTag(SetupScreenTags.RUBRIC_TEXT).performTextInput("Body")
+            onNodeWithTag(SetupScreenTags.SUBJECT).performTextInput("Bitcoin")
+            onNodeWithTag(SetupScreenTags.API_KEY).performTextInput("sk-123")
+
+            state = AnalysisUiState.Loading
+            waitForIdle()
+            state = AnalysisUiState.Success(fixtureReport)
+            waitForIdle()
+
+            // SetupScreen must have actually left composition (not merely be hidden), otherwise this
+            // test would pass even if input state were wrongly reset.
+            onNodeWithTag(ScoreReportScreenTags.HEADER).assertExists()
+            onNodeWithTag(SetupScreenTags.SUBJECT).assertDoesNotExist()
+
+            onNodeWithTag(ScoreReportScreenTags.ANALYZE_AGAIN).performScrollTo().performClick()
+            waitForIdle()
+
+            onNodeWithTag(SetupScreenTags.RUBRIC_TITLE)
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("T")))
+            onNodeWithTag(SetupScreenTags.SUBJECT)
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("Bitcoin")))
+
+            onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
+            waitForIdle()
+
+            assertEquals(listOf("T", "Body", "Bitcoin", "sk-123"), analyzeCalls.single())
         }
 }
 
@@ -134,6 +211,23 @@ class AppWiringTest : ComposeUiTestRunner() {
             subjectQuery: String,
             config: LlmRequestConfig,
         ): Result<ProjectScoreReport> = deferred.await()
+    }
+
+    /** Records every call's inputs and resolves them, in order, from [results]. */
+    private class RecordingService(
+        private val results: List<CompletableDeferred<Result<ProjectScoreReport>>>,
+    ) : ScoreAnalysisService {
+        val calls = mutableListOf<List<String>>()
+        private var callIndex = 0
+
+        override suspend fun analyze(
+            rubric: RubricInput,
+            subjectQuery: String,
+            config: LlmRequestConfig,
+        ): Result<ProjectScoreReport> {
+            calls += listOf(rubric.title, rubric.text, subjectQuery, config.apiKey.value)
+            return results[callIndex++].await()
+        }
     }
 
     @Test
@@ -172,5 +266,48 @@ class AppWiringTest : ComposeUiTestRunner() {
 
             onNodeWithTag(SetupScreenTags.LOADING).assertDoesNotExist()
             onNodeWithTag(SetupScreenTags.ERROR).assertExists()
+        }
+
+    @Test
+    fun success_thenAnalyzeAgain_keepsInputs_andReanalyzes() =
+        runComposeUiTest {
+            val firstResult = CompletableDeferred<Result<ProjectScoreReport>>()
+            val secondResult = CompletableDeferred<Result<ProjectScoreReport>>()
+            val service = RecordingService(listOf(firstResult, secondResult))
+            setContent {
+                App(viewModel = ScoreAnalysisViewModel(service = service))
+            }
+
+            onNodeWithTag(SetupScreenTags.RUBRIC_TITLE).performTextInput("T")
+            onNodeWithTag(SetupScreenTags.RUBRIC_TEXT).performTextInput("Body")
+            onNodeWithTag(SetupScreenTags.SUBJECT).performTextInput("Bitcoin")
+            onNodeWithTag(SetupScreenTags.API_KEY).performTextInput("sk-123")
+            onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
+            waitForIdle()
+
+            onNodeWithTag(SetupScreenTags.LOADING).assertExists()
+            firstResult.complete(Result.success(fixtureReport))
+            waitForIdle()
+
+            onNodeWithTag(ScoreReportScreenTags.HEADER).assertExists()
+
+            onNodeWithTag(ScoreReportScreenTags.ANALYZE_AGAIN).performScrollTo().performClick()
+            waitForIdle()
+
+            onNodeWithTag(SetupScreenTags.ANALYZE).assertIsEnabled()
+            onNodeWithTag(SetupScreenTags.ERROR).assertDoesNotExist()
+            onNodeWithTag(SetupScreenTags.LOADING).assertDoesNotExist()
+
+            // No re-typing: the previously entered values must still be there.
+            onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
+            waitForIdle()
+
+            onNodeWithTag(SetupScreenTags.LOADING).assertExists()
+            secondResult.complete(Result.success(fixtureReport))
+            waitForIdle()
+
+            assertEquals(2, service.calls.size)
+            assertEquals(service.calls[0], service.calls[1])
+            assertEquals(listOf("T", "Body", "Bitcoin", "sk-123"), service.calls[0])
         }
 }

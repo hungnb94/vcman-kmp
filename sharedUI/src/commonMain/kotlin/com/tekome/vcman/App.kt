@@ -4,11 +4,16 @@ import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tekome.vcman.presentation.AnalysisUiState
 import com.tekome.vcman.presentation.ScoreAnalysisViewModel
+import com.tekome.vcman.ui.ScoreReportScreen
+import com.tekome.vcman.ui.SetupInput
 import com.tekome.vcman.ui.SetupScreen
 
 @Composable
@@ -18,6 +23,7 @@ fun App(viewModel: ScoreAnalysisViewModel = viewModel { ScoreAnalysisViewModel()
         AppContent(
             uiState = uiState,
             onAnalyze = viewModel::analyze,
+            onAnalyzeAgain = viewModel::reset,
             modifier = Modifier.safeContentPadding(),
         )
     }
@@ -27,19 +33,34 @@ fun App(viewModel: ScoreAnalysisViewModel = viewModel { ScoreAnalysisViewModel()
 internal fun AppContent(
     uiState: AnalysisUiState,
     onAnalyze: (rubricTitle: String, rubricText: String, subject: String, apiKey: String) -> Unit,
+    onAnalyzeAgain: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Hoisted here (not inside SetupScreen) so it survives the `Success` branch below (AC #11):
+    // AppContent stays in composition across every `when` branch, SetupScreen does not.
+    // `remember` only, never `rememberSaveable` - apiKey must not enter the saved-instance state.
+    var setupInput by remember { mutableStateOf(SetupInput()) }
+
     when (uiState) {
         AnalysisUiState.Idle,
         AnalysisUiState.Loading,
         is AnalysisUiState.Error,
-        is AnalysisUiState.Success,
         -> {
             SetupScreen(
                 modifier = modifier,
+                input = setupInput,
+                onInputChange = { setupInput = it },
                 loading = uiState.isLoading,
                 error = uiState.errorMessageOrNull,
                 onAnalyze = onAnalyze,
+            )
+        }
+
+        is AnalysisUiState.Success -> {
+            ScoreReportScreen(
+                modifier = modifier,
+                report = uiState.report,
+                onAnalyzeAgain = onAnalyzeAgain,
             )
         }
     }
