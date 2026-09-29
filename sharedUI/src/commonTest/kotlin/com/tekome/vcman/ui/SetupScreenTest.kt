@@ -23,11 +23,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/**
- * Test-only host that owns [SetupInput] with plain `remember`, mirroring how `AppContent` hoists it
- * in production. Lets [SetupScreen] itself stay fully stateless while keeping this test file's body
- * (call sites, assertions) unchanged from before the AC #11 refactor.
- */
 @Composable
 private fun StatefulSetupScreen(
     loading: Boolean,

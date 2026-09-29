@@ -31,23 +31,15 @@ import androidx.compose.ui.unit.dp
 import com.tekome.vcman.data.SampleRubric
 import com.tekome.vcman.data.SampleRubrics
 
-/**
- * Immutable snapshot of the four [SetupScreen] inputs. Owned by the caller (see `AppContent`), not
- * by [SetupScreen] itself, so it survives whatever screen is shown next (stateless composable).
- *
- * In-memory only - never log or persist an instance of this class ([apiKey] is a secret).
- */
 data class SetupInput(
     val rubricTitle: String = "",
     val rubricText: String = "",
     val subject: String = "",
     val apiKey: String = "",
 ) {
-    override fun toString(): String =
-        "SetupInput(rubricTitle=$rubricTitle, rubricText=$rubricText, subject=$subject, apiKey=***)"
+    override fun toString(): String = "SetupInput(rubricTitle=$rubricTitle, rubricText=$rubricText, subject=$subject, apiKey=***)"
 }
 
-/** Stable node identifiers for [SetupScreen], so tests do not depend on user-visible labels. */
 internal object SetupScreenTags {
     const val RUBRIC_TITLE = "setup_rubric_title"
     const val RUBRIC_TEXT = "setup_rubric_text"
@@ -94,7 +86,12 @@ fun SetupScreen(
         )
         OutlinedButton(
             onClick = {
-                onInputChange(input.copy(rubricTitle = sampleRubric.title, rubricText = sampleRubric.text))
+                onInputChange(
+                    input.copy(
+                        rubricTitle = sampleRubric.title,
+                        rubricText = sampleRubric.text,
+                    ),
+                )
             },
             modifier = Modifier.testTag(SetupScreenTags.LOAD_SAMPLE),
         ) {
@@ -135,7 +132,14 @@ fun SetupScreen(
             )
         }
         Button(
-            onClick = { onAnalyze(input.rubricTitle, input.rubricText, input.subject, input.apiKey) },
+            onClick = {
+                onAnalyze(
+                    input.rubricTitle,
+                    input.rubricText,
+                    input.subject,
+                    input.apiKey,
+                )
+            },
             enabled = !loading,
             modifier = Modifier.fillMaxWidth().testTag(SetupScreenTags.ANALYZE),
         ) {
