@@ -18,10 +18,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -35,7 +31,15 @@ import androidx.compose.ui.unit.dp
 import com.tekome.vcman.data.SampleRubric
 import com.tekome.vcman.data.SampleRubrics
 
-/** Stable node identifiers for [SetupScreen], so tests do not depend on user-visible labels. */
+data class SetupInput(
+    val rubricTitle: String = "",
+    val rubricText: String = "",
+    val subject: String = "",
+    val apiKey: String = "",
+) {
+    override fun toString(): String = "SetupInput(rubricTitle=$rubricTitle, rubricText=$rubricText, subject=$subject, apiKey=***)"
+}
+
 internal object SetupScreenTags {
     const val RUBRIC_TITLE = "setup_rubric_title"
     const val RUBRIC_TEXT = "setup_rubric_text"
@@ -50,16 +54,13 @@ internal object SetupScreenTags {
 @Composable
 fun SetupScreen(
     modifier: Modifier = Modifier,
+    input: SetupInput,
+    onInputChange: (SetupInput) -> Unit,
     loading: Boolean,
     error: String?,
     onAnalyze: (rubricTitle: String, rubricText: String, subject: String, apiKey: String) -> Unit,
     sampleRubric: SampleRubric = SampleRubrics.cryptoBenchScore,
 ) {
-    var rubricTitle by remember { mutableStateOf("") }
-    var rubricText by remember { mutableStateOf("") }
-    var subject by remember { mutableStateOf("") }
-    var apiKey by remember { mutableStateOf("") } // remember only - never log this.
-
     Column(
         modifier =
             modifier
@@ -69,15 +70,15 @@ fun SetupScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         OutlinedTextField(
-            value = rubricTitle,
-            onValueChange = { rubricTitle = it },
+            value = input.rubricTitle,
+            onValueChange = { onInputChange(input.copy(rubricTitle = it)) },
             label = { Text("Tieu de rubric") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth().testTag(SetupScreenTags.RUBRIC_TITLE),
         )
         OutlinedTextField(
-            value = rubricText,
-            onValueChange = { rubricText = it },
+            value = input.rubricText,
+            onValueChange = { onInputChange(input.copy(rubricText = it)) },
             label = { Text("Noi dung rubric") },
             minLines = 6,
             maxLines = 12,
@@ -85,23 +86,27 @@ fun SetupScreen(
         )
         OutlinedButton(
             onClick = {
-                rubricTitle = sampleRubric.title
-                rubricText = sampleRubric.text
+                onInputChange(
+                    input.copy(
+                        rubricTitle = sampleRubric.title,
+                        rubricText = sampleRubric.text,
+                    ),
+                )
             },
             modifier = Modifier.testTag(SetupScreenTags.LOAD_SAMPLE),
         ) {
             Text("Load rubric mau")
         }
         OutlinedTextField(
-            value = subject,
-            onValueChange = { subject = it },
+            value = input.subject,
+            onValueChange = { onInputChange(input.copy(subject = it)) },
             label = { Text("Project / company / coin") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth().testTag(SetupScreenTags.SUBJECT),
         )
         OutlinedTextField(
-            value = apiKey,
-            onValueChange = { apiKey = it },
+            value = input.apiKey,
+            onValueChange = { onInputChange(input.copy(apiKey = it)) },
             label = { Text("API key") },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
@@ -127,7 +132,14 @@ fun SetupScreen(
             )
         }
         Button(
-            onClick = { onAnalyze(rubricTitle, rubricText, subject, apiKey) },
+            onClick = {
+                onAnalyze(
+                    input.rubricTitle,
+                    input.rubricText,
+                    input.subject,
+                    input.apiKey,
+                )
+            },
             enabled = !loading,
             modifier = Modifier.fillMaxWidth().testTag(SetupScreenTags.ANALYZE),
         ) {
@@ -151,6 +163,8 @@ fun SetupScreen(
 private fun SetupScreenPreview() {
     MaterialTheme {
         SetupScreen(
+            input = SetupInput(subject = "Bitcoin"),
+            onInputChange = {},
             loading = false,
             error = "Vi du thong bao loi",
             onAnalyze = { _, _, _, _ -> },
