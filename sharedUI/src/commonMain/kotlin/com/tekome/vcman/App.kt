@@ -12,6 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tekome.vcman.presentation.AnalysisUiState
 import com.tekome.vcman.presentation.ScoreAnalysisViewModel
+import com.tekome.vcman.ui.ScoreReportScreen
 import com.tekome.vcman.ui.SetupInput
 import com.tekome.vcman.ui.SetupScreen
 
@@ -22,6 +23,7 @@ fun App(viewModel: ScoreAnalysisViewModel = viewModel { ScoreAnalysisViewModel()
         AppContent(
             uiState = uiState,
             onAnalyze = viewModel::analyze,
+            onAnalyzeAgain = viewModel::reset,
             modifier = Modifier.safeContentPadding(),
         )
     }
@@ -31,10 +33,11 @@ fun App(viewModel: ScoreAnalysisViewModel = viewModel { ScoreAnalysisViewModel()
 internal fun AppContent(
     uiState: AnalysisUiState,
     onAnalyze: (rubricTitle: String, rubricText: String, subject: String, apiKey: String) -> Unit,
+    onAnalyzeAgain: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Hoisted here (not inside SetupScreen) so its value survives recomposition across every branch
-    // below, including branches that will render a different screen entirely (see follow-up PRs).
+    // Hoisted here (not inside SetupScreen) so it survives the `Success` branch below (AC #11):
+    // AppContent stays in composition across every `when` branch, SetupScreen does not.
     // `remember` only, never `rememberSaveable` - apiKey must not enter the saved-instance state.
     var setupInput by remember { mutableStateOf(SetupInput()) }
 
@@ -42,7 +45,6 @@ internal fun AppContent(
         AnalysisUiState.Idle,
         AnalysisUiState.Loading,
         is AnalysisUiState.Error,
-        is AnalysisUiState.Success,
         -> {
             SetupScreen(
                 modifier = modifier,
@@ -51,6 +53,14 @@ internal fun AppContent(
                 loading = uiState.isLoading,
                 error = uiState.errorMessageOrNull,
                 onAnalyze = onAnalyze,
+            )
+        }
+
+        is AnalysisUiState.Success -> {
+            ScoreReportScreen(
+                modifier = modifier,
+                report = uiState.report,
+                onAnalyzeAgain = onAnalyzeAgain,
             )
         }
     }
