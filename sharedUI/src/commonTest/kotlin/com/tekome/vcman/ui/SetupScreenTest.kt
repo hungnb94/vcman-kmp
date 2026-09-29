@@ -1,7 +1,9 @@
 package com.tekome.vcman.ui
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -15,10 +17,39 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.runComposeUiTest
+import androidx.compose.ui.text.AnnotatedString
 import com.tekome.vcman.data.SampleRubric
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+
+/**
+ * Test-only host that owns [SetupInput] with plain `remember`, mirroring how `AppContent` hoists it
+ * in production. Lets [SetupScreen] itself stay fully stateless while keeping this test file's body
+ * (call sites, assertions) unchanged from before the AC #11 refactor.
+ */
+@Composable
+private fun StatefulSetupScreen(
+    loading: Boolean,
+    error: String?,
+    onAnalyze: (rubricTitle: String, rubricText: String, subject: String, apiKey: String) -> Unit,
+    sampleRubric: SampleRubric,
+    initialInput: SetupInput = SetupInput(),
+    onInputChange: (SetupInput) -> Unit = {},
+) {
+    var input by remember { mutableStateOf(initialInput) }
+    SetupScreen(
+        input = input,
+        onInputChange = {
+            input = it
+            onInputChange(it)
+        },
+        loading = loading,
+        error = error,
+        onAnalyze = onAnalyze,
+        sampleRubric = sampleRubric,
+    )
+}
 
 @OptIn(ExperimentalTestApi::class)
 class SetupScreenTest : ComposeUiTestRunner() {
@@ -29,7 +60,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
         runComposeUiTest {
             val calls = mutableListOf<List<String>>()
             setContent {
-                SetupScreen(
+                StatefulSetupScreen(
                     loading = false,
                     error = null,
                     onAnalyze = { title, text, subject, apiKey -> calls += listOf(title, text, subject, apiKey) },
@@ -52,7 +83,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
         runComposeUiTest {
             val calls = mutableListOf<List<String>>()
             setContent {
-                SetupScreen(
+                StatefulSetupScreen(
                     loading = false,
                     error = null,
                     onAnalyze = { title, text, subject, apiKey -> calls += listOf(title, text, subject, apiKey) },
@@ -71,7 +102,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
         runComposeUiTest {
             val calls = mutableListOf<List<String>>()
             setContent {
-                SetupScreen(
+                StatefulSetupScreen(
                     loading = false,
                     error = null,
                     onAnalyze = { title, text, subject, apiKey -> calls += listOf(title, text, subject, apiKey) },
@@ -94,7 +125,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
     fun apiKeyField_isMasked() =
         runComposeUiTest {
             setContent {
-                SetupScreen(
+                StatefulSetupScreen(
                     loading = false,
                     error = null,
                     onAnalyze = { _, _, _, _ -> },
@@ -111,7 +142,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
         runComposeUiTest {
             val calls = mutableListOf<List<String>>()
             setContent {
-                SetupScreen(
+                StatefulSetupScreen(
                     loading = true,
                     error = null,
                     onAnalyze = { title, text, subject, apiKey -> calls += listOf(title, text, subject, apiKey) },
@@ -130,7 +161,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
     fun notLoading_hidesIndicator_andEnablesAnalyze() =
         runComposeUiTest {
             setContent {
-                SetupScreen(
+                StatefulSetupScreen(
                     loading = false,
                     error = null,
                     onAnalyze = { _, _, _, _ -> },
@@ -146,7 +177,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
     fun error_isDisplayed() =
         runComposeUiTest {
             setContent {
-                SetupScreen(
+                StatefulSetupScreen(
                     loading = false,
                     error = "Subject is required",
                     onAnalyze = { _, _, _, _ -> },
@@ -162,7 +193,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
         runComposeUiTest {
             var currentError by mutableStateOf<String?>("Boom")
             setContent {
-                SetupScreen(
+                StatefulSetupScreen(
                     loading = false,
                     error = currentError,
                     onAnalyze = { _, _, _, _ -> },
@@ -181,7 +212,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
     fun noError_hidesErrorMessageFromTheStart() =
         runComposeUiTest {
             setContent {
-                SetupScreen(
+                StatefulSetupScreen(
                     loading = false,
                     error = null,
                     onAnalyze = { _, _, _, _ -> },
@@ -191,4 +222,91 @@ class SetupScreenTest : ComposeUiTestRunner() {
 
             onNodeWithTag(SetupScreenTags.ERROR).assertDoesNotExist()
         }
+
+    @Test
+    fun input_fromOutside_isRenderedInNonSecretFields() =
+        runComposeUiTest {
+            setContent {
+                SetupScreen(
+                    input = SetupInput(subject = "Bitcoin"),
+                    onInputChange = {},
+                    loading = false,
+                    error = null,
+                    onAnalyze = { _, _, _, _ -> },
+                    sampleRubric = fakeSample,
+                )
+            }
+
+            onNodeWithTag(SetupScreenTags.SUBJECT)
+                .assert(
+                    SemanticsMatcher.expectValue(
+                        SemanticsProperties.EditableText,
+                        AnnotatedString("Bitcoin"),
+                    ),
+                )
+        }
+
+    @Test
+    fun typing_callsOnInputChange_withCopyOfChangedFieldOnly() =
+        runComposeUiTest {
+            val changes = mutableListOf<SetupInput>()
+            setContent {
+                SetupScreen(
+                    input = SetupInput(subject = "Bitcoin", apiKey = "sk-123"),
+                    onInputChange = { changes += it },
+                    loading = false,
+                    error = null,
+                    onAnalyze = { _, _, _, _ -> },
+                    sampleRubric = fakeSample,
+                )
+            }
+
+            onNodeWithTag(SetupScreenTags.RUBRIC_TITLE).performTextInput("T")
+
+            assertEquals(1, changes.size)
+            assertEquals(SetupInput(rubricTitle = "T", subject = "Bitcoin", apiKey = "sk-123"), changes.single())
+        }
+
+    @Test
+    fun loadSample_callsOnInputChange_onceKeepingSubjectAndApiKey() =
+        runComposeUiTest {
+            val changes = mutableListOf<SetupInput>()
+            setContent {
+                SetupScreen(
+                    input = SetupInput(subject = "Bitcoin", apiKey = "sk-123"),
+                    onInputChange = { changes += it },
+                    loading = false,
+                    error = null,
+                    onAnalyze = { _, _, _, _ -> },
+                    sampleRubric = fakeSample,
+                )
+            }
+
+            onNodeWithTag(SetupScreenTags.LOAD_SAMPLE).performClick()
+
+            assertEquals(1, changes.size)
+            assertEquals(
+                SetupInput(rubricTitle = fakeSample.title, rubricText = fakeSample.text, subject = "Bitcoin", apiKey = "sk-123"),
+                changes.single(),
+            )
+        }
+}
+
+class SetupInputTest {
+    @Test
+    fun toString_neverExposesApiKey() {
+        val input = SetupInput(rubricTitle = "a", rubricText = "b", subject = "c", apiKey = "sk-secret")
+
+        val text = input.toString()
+
+        assertTrue(!text.contains("sk-secret"))
+        assertTrue(text.contains("a"))
+        assertTrue(text.contains("b"))
+        assertTrue(text.contains("c"))
+    }
+
+    @Test
+    fun defaultConstructor_hasAllFieldsBlank() {
+        assertEquals(SetupInput("", "", "", ""), SetupInput())
+    }
 }

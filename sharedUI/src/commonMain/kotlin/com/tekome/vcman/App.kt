@@ -4,11 +4,15 @@ import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tekome.vcman.presentation.AnalysisUiState
 import com.tekome.vcman.presentation.ScoreAnalysisViewModel
+import com.tekome.vcman.ui.SetupInput
 import com.tekome.vcman.ui.SetupScreen
 
 @Composable
@@ -29,6 +33,11 @@ internal fun AppContent(
     onAnalyze: (rubricTitle: String, rubricText: String, subject: String, apiKey: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Hoisted here (not inside SetupScreen) so its value survives recomposition across every branch
+    // below, including branches that will render a different screen entirely (see follow-up PRs).
+    // `remember` only, never `rememberSaveable` - apiKey must not enter the saved-instance state.
+    var setupInput by remember { mutableStateOf(SetupInput()) }
+
     when (uiState) {
         AnalysisUiState.Idle,
         AnalysisUiState.Loading,
@@ -37,6 +46,8 @@ internal fun AppContent(
         -> {
             SetupScreen(
                 modifier = modifier,
+                input = setupInput,
+                onInputChange = { setupInput = it },
                 loading = uiState.isLoading,
                 error = uiState.errorMessageOrNull,
                 onAnalyze = onAnalyze,
