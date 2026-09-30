@@ -35,12 +35,6 @@ import com.tekome.vcman.domain.ScoreSectionResult
 import kotlin.math.abs
 import kotlin.math.roundToLong
 
-/**
- * Stable node identifiers for [ScoreReportScreen]. Section/question tags are generated from their
- * (immutable, per-`Success`) list index rather than domain data (name/id), because
- * [ScoreSectionResult.name] and [QuestionScoreResult.id] carry no uniqueness guarantee (LLM
- * output) - see also [defaultExpanded] and the `key` used in the root [LazyColumn].
- */
 internal object ScoreReportScreenTags {
     const val LIST = "score_report_list"
     const val HEADER = "score_report_header"
@@ -76,7 +70,6 @@ internal object ScoreReportScreenTags {
     ) = "score_report_source_${sectionIndex}_$questionIndex"
 }
 
-/** Number of sections expanded by default when a report first renders. Data, not a branch. */
 private const val DEFAULT_EXPANDED_COUNT = 1
 
 /**
@@ -96,11 +89,8 @@ internal fun safeRatio(
     max: Double,
 ): Float = if (max > 0.0 && value.isFinite()) (value / max).toFloat().coerceIn(0f, 1f) else 0f
 
-/**
- * Formats [value] with at most one decimal place, without `String.format` (JVM-only, does not
- * compile for the `iosArm64`/`iosSimulatorArm64` targets of `commonMain`).
- */
 internal fun formatScore(value: Double): String {
+    if (!value.isFinite()) return "-"
     val tenths = (value * 10).roundToLong()
     val sign = if (tenths < 0) "-" else ""
     val absTenths = abs(tenths)
@@ -117,31 +107,21 @@ private val expandedSectionsSaver =
         restore = { it.toSet() },
     )
 
-/**
- * Displays a [ProjectScoreReport]: a header (subject, grand total/max, progress, summary), one
- * card per section (any count, from [ProjectScoreReport.sections]) with an expandable list of
- * questions, and an "Analyze again" action. Stateless w.r.t. business logic: all data comes from
- * [report], the only mutable state here is which section cards are expanded (pure UI state).
- */
 @Composable
 fun ScoreReportScreen(
     modifier: Modifier = Modifier,
     report: ProjectScoreReport,
     onAnalyzeAgain: () -> Unit,
 ) {
-    // A new report resets which sections are expanded back to the default.
     var expandedSections by
         rememberSaveable(report, stateSaver = expandedSectionsSaver) {
             mutableStateOf(defaultExpanded(report.sections))
         }
 
-    // Single root LazyColumn for the whole screen (header + sections + actions) - nesting a
-    // LazyColumn inside a Column(Modifier.verticalScroll(...)) throws "infinity maximum height".
     LazyColumn(modifier = modifier.fillMaxSize().testTag(ScoreReportScreenTags.LIST)) {
         item(key = "header") { ReportHeader(report) }
         itemsIndexed(
             items = report.sections,
-            // Index-based: unique even when two sections share a name (LLM output, see class doc).
             key = { index, _ -> "section-$index" },
         ) { index, section ->
             SectionCard(
@@ -226,16 +206,11 @@ private fun SectionCard(
         )
         if (expanded) {
             if (section.questions.isEmpty()) {
-                // Literal kept with diacritics on purpose: chốt qua AskUserQuestion (01-spec.md AC
-                // #6), even though the rest of this app's Vietnamese copy (SetupScreen.kt) is
-                // written without diacritics.
                 Text(
                     "Không có câu hỏi",
                     modifier = Modifier.padding(16.dp).testTag(ScoreReportScreenTags.sectionEmpty(sectionIndex)),
                 )
             } else {
-                // Plain forEach, not a nested LazyColumn: a section's question count is small and
-                // bounded by the rubric, so no windowing is needed here.
                 section.questions.forEachIndexed { questionIndex, question ->
                     QuestionRow(sectionIndex, questionIndex, question)
                 }
@@ -244,7 +219,6 @@ private fun SectionCard(
     }
 }
 
-/** One "label: value" row rendered for every question. Adding a field = one new entry here. */
 private data class QuestionField(
     val key: String,
     val label: String,
@@ -289,7 +263,7 @@ private fun QuestionRow(
         question.sourceUrl?.takeIf { it.isNotBlank() }?.let { url ->
             val uriHandler = LocalUriHandler.current
             TextButton(
-                onClick = { runCatching { uriHandler.openUri(url) } }, // malformed/unopenable URL must not crash UI
+                onClick = { runCatching { uriHandler.openUri(url) } },
                 modifier = Modifier.testTag(ScoreReportScreenTags.sourceLink(sectionIndex, questionIndex)),
             ) {
                 Text("Source")
@@ -361,7 +335,6 @@ private val emptyPreviewReport =
         sections = emptyList(),
     )
 
-/** 0-section report case, self-demonstrating the safe-render path (see also AC #6/#9 tests). */
 @Composable
 @Preview
 private fun ScoreReportScreenEmptyPreview() {
