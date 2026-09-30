@@ -23,11 +23,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/**
- * Test-only host that owns [SetupInput] with plain `remember`, mirroring how `AppContent` hoists it
- * in production. Lets [SetupScreen] itself stay fully stateless while keeping this test file's body
- * (call sites, assertions) unchanged from before the AC #11 refactor.
- */
 @Composable
 private fun StatefulSetupScreen(
     loading: Boolean,
@@ -286,7 +281,12 @@ class SetupScreenTest : ComposeUiTestRunner() {
 
             assertEquals(1, changes.size)
             assertEquals(
-                SetupInput(rubricTitle = fakeSample.title, rubricText = fakeSample.text, subject = "Bitcoin", apiKey = "sk-123"),
+                SetupInput(
+                    rubricTitle = fakeSample.title,
+                    rubricText = fakeSample.text,
+                    subject = "Bitcoin",
+                    apiKey = "sk-123",
+                ),
                 changes.single(),
             )
         }
@@ -295,14 +295,16 @@ class SetupScreenTest : ComposeUiTestRunner() {
 class SetupInputTest {
     @Test
     fun toString_neverExposesApiKey() {
-        val input = SetupInput(rubricTitle = "a", rubricText = "b", subject = "c", apiKey = "sk-secret")
+        val input =
+            SetupInput(rubricTitle = "title-x", rubricText = "text-y", subject = "subject-z", apiKey = "sk-secret")
 
         val text = input.toString()
 
         assertTrue(!text.contains("sk-secret"))
-        assertTrue(text.contains("a"))
-        assertTrue(text.contains("b"))
-        assertTrue(text.contains("c"))
+        assertTrue(text.contains("apiKey=***"))
+        assertTrue(text.contains("title-x"))
+        assertTrue(text.contains("text-y"))
+        assertTrue(text.contains("subject-z"))
     }
 
     @Test

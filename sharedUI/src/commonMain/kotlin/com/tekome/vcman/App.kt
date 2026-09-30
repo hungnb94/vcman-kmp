@@ -33,9 +33,6 @@ internal fun AppContent(
     onAnalyze: (rubricTitle: String, rubricText: String, subject: String, apiKey: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Hoisted here (not inside SetupScreen) so its value survives recomposition across every branch
-    // below, including branches that will render a different screen entirely (see follow-up PRs).
-    // `remember` only, never `rememberSaveable` - apiKey must not enter the saved-instance state.
     var setupInput by remember { mutableStateOf(SetupInput()) }
 
     when (uiState) {
