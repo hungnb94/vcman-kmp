@@ -41,11 +41,6 @@ internal object DefaultPromptBuilder : PromptBuilder {
     }
 }
 
-/**
- * One shared instruction for every language: the tag is data, so adding a language never touches
- * this function. JSON keys, enum values and numbers stay as defined by the schema so parsing
- * does not depend on the answer language.
- */
 private fun outputLanguageDirective(language: LanguageTag): String =
     "Write all human-readable text values (subjectName, overallSummary, section names, question labels, " +
         "comments) in the language with BCP-47 tag \"${language.value}\". " +

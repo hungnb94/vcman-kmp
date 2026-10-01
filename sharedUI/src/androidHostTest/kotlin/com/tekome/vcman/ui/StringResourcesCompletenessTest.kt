@@ -6,15 +6,6 @@ import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
-/**
- * Compose Resources never reports a missing translation (it silently falls back to `values`),
- * so this test enforces it: every `values-xx` directory, discovered by scanning, must have
- * exactly the key set of the default `values`, the same format placeholders per key, no blank
- * string, and a `content_language_tag` that starts with its directory's language code (guards
- * against copying the English file and forgetting to change the tag the LLM is told to answer in).
- *
- * Convention: one `strings.xml` per locale directory.
- */
 class StringResourcesCompletenessTest {
     private val resourcesDir: File = locateResourcesDir()
 
@@ -38,7 +29,7 @@ class StringResourcesCompletenessTest {
             .associate { it.getAttribute("name") to it.textContent }
     }
 
-    private val placeholder = Regex("%\\d+\\$[sd]")
+    private val placeholder = Regex("%\\d+\\$[a-zA-Z]")
 
     private fun placeholders(text: String): List<String> = placeholder.findAll(text).map { it.value }.sorted().toList()
 
@@ -64,9 +55,10 @@ class StringResourcesCompletenessTest {
                     problems += "${dir.name}/$key placeholders ${placeholders(text)} != $expected"
                 }
             }
-            val language = dir.name.removePrefix("values-")
+            // Android-style qualifier: `pt-rBR` is language `pt` + region `BR`, i.e. tag `pt-BR`.
+            val language = dir.name.removePrefix("values-").replace("-r", "-")
             val tag = strings["content_language_tag"]
-            if (tag != null && !tag.startsWith(language)) {
+            if (tag != null && !tag.startsWith(language, ignoreCase = true)) {
                 problems += "${dir.name}: content_language_tag '$tag' does not start with '$language'"
             }
         }

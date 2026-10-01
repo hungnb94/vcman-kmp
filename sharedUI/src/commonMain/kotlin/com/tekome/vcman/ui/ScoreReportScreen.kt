@@ -33,8 +33,6 @@ import androidx.compose.ui.unit.dp
 import com.tekome.vcman.domain.ProjectScoreReport
 import com.tekome.vcman.domain.QuestionScoreResult
 import com.tekome.vcman.domain.ScoreSectionResult
-import kotlin.math.abs
-import kotlin.math.roundToLong
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import vcman.sharedui.generated.resources.Res
@@ -49,6 +47,8 @@ import vcman.sharedui.generated.resources.report_score_fraction
 import vcman.sharedui.generated.resources.report_source
 import vcman.sharedui.generated.resources.report_weight
 import vcman.sharedui.generated.resources.report_weighted
+import kotlin.math.abs
+import kotlin.math.roundToLong
 
 internal object ScoreReportScreenTags {
     const val LIST = "score_report_list"
@@ -87,28 +87,15 @@ internal object ScoreReportScreenTags {
 
 private const val DEFAULT_EXPANDED_COUNT = 1
 
-/**
- * Which section indices are expanded by default: the first [DEFAULT_EXPANDED_COUNT] sections.
- * An empty `sections` list naturally yields an empty set - no size check needed.
- */
 internal fun defaultExpanded(sections: List<ScoreSectionResult>): Set<Int> = sections.indices.take(DEFAULT_EXPANDED_COUNT).toSet()
 
 internal fun Set<Int>.toggle(index: Int): Set<Int> = if (index in this) this - index else this + index
 
-/**
- * Ratio of [value] over [max] for a progress indicator, guarded against division by zero,
- * `NaN` and negative inputs (e.g. a section/report with zero max points).
- */
 internal fun safeRatio(
     value: Double,
     max: Double,
 ): Float = if (max > 0.0 && value.isFinite()) (value / max).toFloat().coerceIn(0f, 1f) else 0f
 
-/**
- * Minimal score formatting: at most one decimal digit, with [decimalSeparator] taken from the
- * `decimal_separator` string resource (en ".", vi ","). Not a full CLDR number formatter: no
- * grouping separators, digits or scripts of other locales.
- */
 internal fun formatScore(
     value: Double,
     decimalSeparator: String,
@@ -142,7 +129,8 @@ fun ScoreReportScreen(
         }
 
     val decimalSeparator = stringResource(Res.string.decimal_separator)
-    val fmt: (Double) -> String = remember(decimalSeparator) { { formatScore(it, decimalSeparator) } }
+    val fmt: (Double) -> String =
+        remember(decimalSeparator) { { formatScore(it, decimalSeparator) } }
 
     LazyColumn(modifier = modifier.fillMaxSize().testTag(ScoreReportScreenTags.LIST)) {
         item(key = "header") { ReportHeader(report, fmt) }
@@ -161,7 +149,11 @@ fun ScoreReportScreen(
         item(key = "actions") {
             Button(
                 onClick = onAnalyzeAgain,
-                modifier = Modifier.fillMaxWidth().padding(16.dp).testTag(ScoreReportScreenTags.ANALYZE_AGAIN),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .testTag(ScoreReportScreenTags.ANALYZE_AGAIN),
             ) {
                 Text(stringResource(Res.string.report_analyze_again))
             }
@@ -193,7 +185,10 @@ private fun ReportHeader(
                         stateDescription = score
                     }.testTag(ScoreReportScreenTags.HEADER_PROGRESS),
         )
-        Text(report.overallSummary, modifier = Modifier.testTag(ScoreReportScreenTags.HEADER_SUMMARY))
+        Text(
+            report.overallSummary,
+            modifier = Modifier.testTag(ScoreReportScreenTags.HEADER_SUMMARY),
+        )
     }
 }
 
@@ -217,15 +212,21 @@ private fun SectionCard(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .toggleable(value = expanded, role = Role.Button, onValueChange = { onToggle() })
-                    .padding(16.dp)
+                    .toggleable(
+                        value = expanded,
+                        role = Role.Button,
+                        onValueChange = { onToggle() },
+                    ).padding(16.dp)
                     .testTag(ScoreReportScreenTags.sectionToggle(sectionIndex)),
         ) {
             Text(section.name, modifier = Modifier.fillMaxWidth())
         }
         Text(
             score,
-            modifier = Modifier.padding(horizontal = 16.dp).testTag(ScoreReportScreenTags.sectionScore(sectionIndex)),
+            modifier =
+                Modifier
+                    .padding(horizontal = 16.dp)
+                    .testTag(ScoreReportScreenTags.sectionScore(sectionIndex)),
         )
         LinearProgressIndicator(
             progress = { safeRatio(section.total, section.maxPoints) },
@@ -241,7 +242,10 @@ private fun SectionCard(
             if (section.questions.isEmpty()) {
                 Text(
                     stringResource(Res.string.report_no_questions),
-                    modifier = Modifier.padding(16.dp).testTag(ScoreReportScreenTags.sectionEmpty(sectionIndex)),
+                    modifier =
+                        Modifier
+                            .padding(16.dp)
+                            .testTag(ScoreReportScreenTags.sectionEmpty(sectionIndex)),
                 )
             } else {
                 section.questions.forEachIndexed { questionIndex, question ->
@@ -252,7 +256,6 @@ private fun SectionCard(
     }
 }
 
-/** Resolves the localized "value / max" text; the template (separator, order) lives in resources. */
 @Composable
 private fun scoreFraction(
     value: Double,
@@ -271,11 +274,18 @@ private val questionFields =
         QuestionField(key = "raw", label = Res.string.report_raw_score) { question, fmt ->
             scoreFraction(question.rawScore, QuestionScoreResult.MAX_RAW_SCORE, fmt)
         },
-        QuestionField(key = "weight", label = Res.string.report_weight) { question, fmt -> fmt(question.weight) },
+        QuestionField(key = "weight", label = Res.string.report_weight) { question, fmt ->
+            fmt(
+                question.weight,
+            )
+        },
         QuestionField(key = "weighted", label = Res.string.report_weighted) { question, fmt ->
             scoreFraction(question.weightedScore, question.maxPoints, fmt)
         },
-        QuestionField(key = "comment", label = Res.string.report_comment) { question, _ -> question.comment },
+        QuestionField(
+            key = "comment",
+            label = Res.string.report_comment,
+        ) { question, _ -> question.comment },
     )
 
 @Composable
@@ -292,10 +302,17 @@ private fun QuestionRow(
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .testTag(ScoreReportScreenTags.question(sectionIndex, questionIndex)),
     ) {
-        Text(stringResource(Res.string.report_question_title, question.id, question.label), fontWeight = FontWeight.SemiBold)
+        Text(
+            stringResource(Res.string.report_question_title, question.id, question.label),
+            fontWeight = FontWeight.SemiBold,
+        )
         questionFields.forEach { field ->
             Text(
-                stringResource(Res.string.report_field_line, stringResource(field.label), field.value(question, fmt)),
+                stringResource(
+                    Res.string.report_field_line,
+                    stringResource(field.label),
+                    field.value(question, fmt),
+                ),
                 modifier =
                     Modifier.testTag(
                         ScoreReportScreenTags.questionField(sectionIndex, questionIndex, field.key),
@@ -306,7 +323,13 @@ private fun QuestionRow(
             val uriHandler = LocalUriHandler.current
             TextButton(
                 onClick = { runCatching { uriHandler.openUri(url) } },
-                modifier = Modifier.testTag(ScoreReportScreenTags.sourceLink(sectionIndex, questionIndex)),
+                modifier =
+                    Modifier.testTag(
+                        ScoreReportScreenTags.sourceLink(
+                            sectionIndex,
+                            questionIndex,
+                        ),
+                    ),
             ) {
                 Text(stringResource(Res.string.report_source))
             }

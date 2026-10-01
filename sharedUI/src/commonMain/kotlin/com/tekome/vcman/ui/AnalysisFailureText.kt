@@ -17,14 +17,6 @@ import vcman.sharedui.generated.resources.setup_rubric_text_label
 import vcman.sharedui.generated.resources.setup_rubric_title_label
 import vcman.sharedui.generated.resources.setup_subject_label
 
-/**
- * Localized, user-facing text for this failure. Two axes of extension:
- * - closed set (this `when`): exhaustive with no `else`, so a new [AnalysisFailure] subtype will
- *   not build until it is given a message here;
- * - open set (languages): the strings live in `composeResources/values*`, so a new language only
- *   adds a resource file. Dynamic values (HTTP status, explanation, field names) are
- *   positional placeholders in those files, never string concatenation.
- */
 @Composable
 internal fun AnalysisFailure.asText(): String =
     when (this) {

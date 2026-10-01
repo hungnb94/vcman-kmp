@@ -8,7 +8,6 @@ import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** Assertions here are locale independent: they check dynamic parameters and non-emptiness only. */
 @OptIn(ExperimentalTestApi::class)
 class AnalysisFailureTextTest : ComposeUiTestRunner() {
     private fun textOf(failure: AnalysisFailure): String {
