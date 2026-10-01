@@ -1,5 +1,6 @@
 package com.tekome.vcman.data
 
+import com.tekome.vcman.domain.LanguageTag
 import com.tekome.vcman.domain.RubricInput
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -22,7 +23,10 @@ class KoogScoreAnalysisServiceTest {
         object : PromptBuilder {
             override fun buildSystemPrompt(rubric: RubricInput): String = "SYSTEM:${rubric.title}"
 
-            override fun buildUserPrompt(subjectQuery: String): String = "USER:$subjectQuery"
+            override fun buildUserPrompt(
+                subjectQuery: String,
+                outputLanguage: LanguageTag,
+            ): String = "USER:${outputLanguage.value}:$subjectQuery"
         }
 
     private val validEnvelope =
@@ -56,7 +60,7 @@ class KoogScoreAnalysisServiceTest {
             val chat = LlmChat { _, _, _ -> validEnvelope }
             val service = serviceWith({ LlmChatFactory { chat } }, nowMillis = { 999L })
 
-            val result = service.analyze(rubric, "Acme Inc", requestConfig())
+            val result = service.analyze(rubric, "Acme Inc", requestConfig(), LanguageTag.Default)
 
             val report = result.getOrThrow()
             assertEquals("Acme", report.subjectName)
@@ -78,7 +82,7 @@ class KoogScoreAnalysisServiceTest {
             val chat = LlmChat { _, _, _ -> raw }
             val service = serviceWith({ LlmChatFactory { chat } })
 
-            val result = service.analyze(rubric, "Foo", requestConfig())
+            val result = service.analyze(rubric, "Foo", requestConfig(), LanguageTag.Default)
 
             val exception = assertIs<AnalysisException>(result.exceptionOrNull())
             val error = assertIs<AnalysisError.AmbiguousSubject>(exception.error)
@@ -91,7 +95,7 @@ class KoogScoreAnalysisServiceTest {
             val chat = LlmChat { _, _, _ -> throw IOException("connection refused") }
             val service = serviceWith({ LlmChatFactory { chat } })
 
-            val result = service.analyze(rubric, "Acme", requestConfig())
+            val result = service.analyze(rubric, "Acme", requestConfig(), LanguageTag.Default)
 
             val exception = assertIs<AnalysisException>(result.exceptionOrNull())
             assertEquals(AnalysisError.Network, exception.error)
@@ -111,7 +115,7 @@ class KoogScoreAnalysisServiceTest {
                 }
             val service = serviceWith({ LlmChatFactory { chat } })
 
-            val result = service.analyze(rubric, "Acme", requestConfig())
+            val result = service.analyze(rubric, "Acme", requestConfig(), LanguageTag.Default)
 
             val exception = assertIs<AnalysisException>(result.exceptionOrNull())
             assertEquals(AnalysisError.ApiError(401), exception.error)
@@ -123,7 +127,7 @@ class KoogScoreAnalysisServiceTest {
             val chat = LlmChat { _, _, _ -> "not json at all" }
             val service = serviceWith({ LlmChatFactory { chat } })
 
-            val result = service.analyze(rubric, "Acme", requestConfig())
+            val result = service.analyze(rubric, "Acme", requestConfig(), LanguageTag.Default)
 
             assertIs<AnalysisError.InvalidResponse>(assertIs<AnalysisException>(result.exceptionOrNull()).error)
         }
@@ -135,7 +139,7 @@ class KoogScoreAnalysisServiceTest {
             val service = serviceWith({ LlmChatFactory { chat } })
 
             assertFailsWith<CancellationException> {
-                service.analyze(rubric, "Acme", requestConfig())
+                service.analyze(rubric, "Acme", requestConfig(), LanguageTag.Default)
             }
         }
 
@@ -150,8 +154,8 @@ class KoogScoreAnalysisServiceTest {
             }
             val service = serviceWith(resolver)
 
-            service.analyze(rubric, "Acme", requestConfig(LlmProvider.Anthropic))
-            service.analyze(rubric, "Acme", requestConfig(LlmProvider.OpenAI))
+            service.analyze(rubric, "Acme", requestConfig(LlmProvider.Anthropic), LanguageTag.Default)
+            service.analyze(rubric, "Acme", requestConfig(LlmProvider.OpenAI), LanguageTag.Default)
 
             assertEquals(listOf(LlmProvider.Anthropic, LlmProvider.OpenAI), requestedProviders)
         }
@@ -167,7 +171,7 @@ class KoogScoreAnalysisServiceTest {
                 }
             val service = serviceWith({ LlmChatFactory { chat } })
 
-            service.analyze(rubric, "Acme", requestConfig(searchTool = null))
+            service.analyze(rubric, "Acme", requestConfig(searchTool = null), LanguageTag.Default)
 
             assertEquals(emptyList(), capturedTools)
         }
@@ -187,6 +191,7 @@ class KoogScoreAnalysisServiceTest {
                 rubric,
                 "Acme",
                 requestConfig(searchTool = WebSearchToolConfig.Firecrawl(ApiKey("firecrawl-key"))),
+                LanguageTag.Default,
             )
 
             assertEquals(1, capturedTools?.size)
@@ -206,9 +211,9 @@ class KoogScoreAnalysisServiceTest {
                 }
             val service = serviceWith({ LlmChatFactory { chat } })
 
-            service.analyze(rubric, "Acme Query", requestConfig())
+            service.analyze(rubric, "Acme Query", requestConfig(), LanguageTag.parse("vi"))
 
             assertEquals("SYSTEM:Rubric", capturedSystem)
-            assertEquals("USER:Acme Query", capturedUser)
+            assertEquals("USER:vi:Acme Query", capturedUser)
         }
 }

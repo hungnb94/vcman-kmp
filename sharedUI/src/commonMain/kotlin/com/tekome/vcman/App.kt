@@ -10,18 +10,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tekome.vcman.presentation.AnalysisFailure
 import com.tekome.vcman.presentation.AnalysisUiState
 import com.tekome.vcman.presentation.ScoreAnalysisViewModel
 import com.tekome.vcman.ui.SetupInput
 import com.tekome.vcman.ui.SetupScreen
+import com.tekome.vcman.ui.asText
+import com.tekome.vcman.ui.rememberContentLanguage
 
 @Composable
 fun App(viewModel: ScoreAnalysisViewModel = viewModel { ScoreAnalysisViewModel() }) {
     MaterialTheme {
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+        val language = rememberContentLanguage()
         AppContent(
             uiState = uiState,
-            onAnalyze = viewModel::analyze,
+            onAnalyze = { title, text, subject, apiKey -> viewModel.analyze(title, text, subject, apiKey, language) },
             modifier = Modifier.safeContentPadding(),
         )
     }
@@ -46,7 +50,7 @@ internal fun AppContent(
                 input = setupInput,
                 onInputChange = { setupInput = it },
                 loading = uiState.isLoading,
-                error = uiState.errorMessageOrNull,
+                error = uiState.errorFailureOrNull?.asText(),
                 onAnalyze = onAnalyze,
             )
         }
@@ -56,5 +60,5 @@ internal fun AppContent(
 internal val AnalysisUiState.isLoading: Boolean
     get() = this is AnalysisUiState.Loading
 
-internal val AnalysisUiState.errorMessageOrNull: String?
-    get() = (this as? AnalysisUiState.Error)?.message
+internal val AnalysisUiState.errorFailureOrNull: AnalysisFailure?
+    get() = (this as? AnalysisUiState.Error)?.failure

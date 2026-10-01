@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="setup_rubric_title_label">Tiêu đề rubric</string>
+    <string name="setup_rubric_text_label">Nội dung rubric</string>
+    <string name="setup_load_sample">Tải rubric mẫu</string>
+    <string name="setup_subject_label">Dự án / công ty / coin</string>
+    <string name="setup_api_key_label">Khóa API</string>
+    <string name="setup_analyze">Phân tích</string>
+    <string name="report_analyze_again">Phân tích lại</string>
+    <string name="report_no_questions">Không có câu hỏi</string>
+    <string name="report_raw_score">Điểm thô</string>
+    <string name="report_weight">Trọng số</string>
+    <string name="report_weighted">Điểm theo trọng số</string>
+    <string name="report_comment">Nhận xét</string>
+    <string name="report_source">Nguồn</string>
+    <string name="report_field_line">%1$s: %2$s</string>
+    <string name="report_score_fraction">%1$s / %2$s</string>
+    <string name="report_question_title">%1$s. %2$s</string>
+    <string name="error_missing_fields">Vui lòng nhập: %1$s.</string>
+    <string name="error_network">Lỗi mạng. Hãy kiểm tra kết nối và thử lại.</string>
+    <string name="error_api">Dịch vụ AI đã từ chối yêu cầu.</string>
+    <string name="error_api_status">Dịch vụ AI đã từ chối yêu cầu (HTTP %1$d).</string>
+    <string name="error_invalid_response">AI trả về phản hồi không đọc được. Vui lòng thử lại.</string>
+    <string name="error_ambiguous_subject">Đối tượng chưa rõ ràng: %1$s</string>
+    <string name="error_unexpected">Đã xảy ra lỗi. Vui lòng thử lại.</string>
+    <string name="decimal_separator">,</string>
+    <string name="content_language_tag">vi</string>
+</resources>

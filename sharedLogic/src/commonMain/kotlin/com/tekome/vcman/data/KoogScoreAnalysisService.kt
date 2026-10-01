@@ -1,5 +1,6 @@
 package com.tekome.vcman.data
 
+import com.tekome.vcman.domain.LanguageTag
 import com.tekome.vcman.domain.ProjectScoreReport
 import com.tekome.vcman.domain.RubricInput
 import kotlin.time.Clock
@@ -23,6 +24,7 @@ class KoogScoreAnalysisService internal constructor(
         rubric: RubricInput,
         subjectQuery: String,
         config: LlmRequestConfig,
+        outputLanguage: LanguageTag,
     ): Result<ProjectScoreReport> =
         runAnalysis(rules = koogErrorRules) {
             val tools = listOfNotNull(config.searchTool?.let(searchToolResolver))
@@ -30,7 +32,7 @@ class KoogScoreAnalysisService internal constructor(
             val raw =
                 chat.complete(
                     systemPrompt = promptBuilder.buildSystemPrompt(rubric),
-                    userPrompt = promptBuilder.buildUserPrompt(subjectQuery),
+                    userPrompt = promptBuilder.buildUserPrompt(subjectQuery, outputLanguage),
                     tools = tools,
                 )
             decodeScoreReport(raw, rubric.title, nowMillis())
