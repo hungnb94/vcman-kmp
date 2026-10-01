@@ -1,5 +1,6 @@
 package com.tekome.vcman.data
 
+import com.tekome.vcman.domain.LanguageTag
 import com.tekome.vcman.domain.ProjectScoreReport
 import com.tekome.vcman.domain.RubricInput
 
@@ -8,6 +9,7 @@ interface ScoreAnalysisService {
         rubric: RubricInput,
         subjectQuery: String,
         config: LlmRequestConfig,
+        outputLanguage: LanguageTag,
     ): Result<ProjectScoreReport>
 }
 
