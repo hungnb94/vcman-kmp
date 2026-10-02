@@ -32,8 +32,6 @@ import vcman.sharedui.generated.resources.report_score_fraction
 import vcman.sharedui.generated.resources.report_weight
 import vcman.sharedui.generated.resources.report_weighted
 
-// --- Pure helper tests (no Compose runtime needed) ---
-
 class ScoreReportScreenHelpersTest {
     @Test
     fun safeRatio_guardsZeroNegativeAndNonFinite() {
@@ -80,10 +78,8 @@ class ScoreReportScreenHelpersTest {
     private fun section(name: String) = ScoreSectionResult(name = name, questions = emptyList())
 }
 
-/**
- * Resolves the localized pieces the screen renders, from inside composition, so expectations track
- * whatever locale the host runs under. Exact per-locale text is asserted in `LocalizedUiTest`.
- */
+// Captures localized text from composition so expectations hold under any host locale.
+// Exact per-locale text is asserted in LocalizedUiTest.
 private class ReportFormat {
     var separator = "."
     var rawLabel = ""
@@ -115,9 +111,6 @@ private fun ReportFormat.Capture() {
     fractionTemplate = stringResource(Res.string.report_score_fraction, "{0}", "{1}")
 }
 
-// --- Compose UI tests, over a table of report "shapes" (question count per section) ---
-
-/** New shape = new row here, not a new test method. */
 private val shapes =
     listOf(
         emptyList(),
@@ -142,9 +135,7 @@ private fun reportWith(shape: List<Int>): ProjectScoreReport =
                             QuestionScoreResult(
                                 id = "Q$questionIndex",
                                 label = "Label $questionIndex",
-                                // Deliberately varies per section/question index (not a fixed
-                                // constant) so a test asserting against these values can't pass by
-                                // coincidence if the screen swaps e.g. rawScore for weightedScore.
+                                // Varies per index so a swapped field (e.g. rawScore/weightedScore) can't pass by coincidence.
                                 weight = 0.5 + (questionIndex % 4) * 0.5,
                                 rawScore = ((sectionIndex * 3 + questionIndex * 2) % 9).toDouble(),
                                 comment = "c$sectionIndex-$questionIndex",
@@ -260,7 +251,6 @@ class ScoreReportScreenTest : ComposeUiTestRunner() {
             val report = reportWith(listOf(2))
             setContent { ScoreReportScreen(report = report, onAnalyzeAgain = {}) }
 
-            // question 0: sourceUrl present (even index)
             onNodeWithTag(ScoreReportScreenTags.question(0, 0)).assertExists()
             onNodeWithTag(ScoreReportScreenTags.questionField(0, 0, "raw")).assertExists()
             onNodeWithTag(ScoreReportScreenTags.questionField(0, 0, "weight")).assertExists()
@@ -268,17 +258,12 @@ class ScoreReportScreenTest : ComposeUiTestRunner() {
             onNodeWithTag(ScoreReportScreenTags.questionField(0, 0, "comment")).assertExists()
             onNodeWithTag(ScoreReportScreenTags.sourceLink(0, 0)).assertExists()
 
-            // question 1: sourceUrl == null (odd index) -> no link, no crash
             onNodeWithTag(ScoreReportScreenTags.sourceLink(0, 1)).assertDoesNotExist()
         }
 
     @Test
     fun questionFields_matchComputedProperties_acrossDifferentReportShapes() =
         runComposeUiTest {
-            // Two structurally different reports (different question counts in section 0, and -
-            // via reportWith's per-question weight/rawScore formula - different weight/rawScore
-            // values), so a field mixup (e.g. rawScore swapped for weightedScore) can't pass by
-            // coincidence (AC #8: values must match exactly across different report structures).
             var report by mutableStateOf(reportWith(shapes[2]))
             val format = ReportFormat()
             setContent {
@@ -353,9 +338,6 @@ class ScoreReportScreenTest : ComposeUiTestRunner() {
             onNodeWithTag(ScoreReportScreenTags.sectionEmpty(0)).assertExists()
         }
 
-    // Name scoped to what's actually exercised: "Analyze again" lives in a fixed item(key =
-    // "actions") independent of report.sections, so its shape-independence is a code-structure
-    // guarantee, not something this test needs to re-verify across every shape in the table.
     @Test
     fun analyzeAgain_firesExactlyOnceForEachClick_withEmptyReport() =
         runComposeUiTest {
@@ -381,7 +363,6 @@ class ScoreReportScreenTest : ComposeUiTestRunner() {
             waitForIdle()
             onNodeWithTag(ScoreReportScreenTags.sectionToggle(1)).assertIsOn()
 
-            // A genuinely new report (not just an equal one) must reset the accordion.
             report = report.copy(subjectName = "Another subject")
             waitForIdle()
 
