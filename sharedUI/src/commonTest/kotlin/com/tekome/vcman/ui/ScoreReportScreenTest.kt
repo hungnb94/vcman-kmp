@@ -26,6 +26,7 @@ import kotlin.test.assertEquals
 import org.jetbrains.compose.resources.stringResource
 import vcman.sharedui.generated.resources.Res
 import vcman.sharedui.generated.resources.decimal_separator
+import vcman.sharedui.generated.resources.report_comment
 import vcman.sharedui.generated.resources.report_field_line
 import vcman.sharedui.generated.resources.report_raw_score
 import vcman.sharedui.generated.resources.report_score_fraction
@@ -41,6 +42,8 @@ class ScoreReportScreenHelpersTest {
         assertEquals(0f, safeRatio(-1.0, 10.0))
         assertEquals(0f, safeRatio(Double.NaN, 10.0))
         assertEquals(0f, safeRatio(1.0, -5.0))
+        assertEquals(0f, safeRatio(1.0, Double.NaN))
+        assertEquals(0f, safeRatio(Double.POSITIVE_INFINITY, 10.0))
     }
 
     @Test
@@ -51,6 +54,8 @@ class ScoreReportScreenHelpersTest {
         assertEquals("0", formatScore(0.0, "."))
         assertEquals("-0.5", formatScore(-0.5, "."))
         assertEquals("13", formatScore(12.96, "."))
+        assertEquals("-", formatScore(Double.NaN, "."))
+        assertEquals("-", formatScore(Double.POSITIVE_INFINITY, "."))
     }
 
     @Test
@@ -85,6 +90,7 @@ private class ReportFormat {
     var rawLabel = ""
     var weightLabel = ""
     var weightedLabel = ""
+    var commentLabel = ""
     var fieldLineTemplate = ""
     var fractionTemplate = ""
 
@@ -107,6 +113,7 @@ private fun ReportFormat.Capture() {
     rawLabel = stringResource(Res.string.report_raw_score)
     weightLabel = stringResource(Res.string.report_weight)
     weightedLabel = stringResource(Res.string.report_weighted)
+    commentLabel = stringResource(Res.string.report_comment)
     fieldLineTemplate = stringResource(Res.string.report_field_line, "{0}", "{1}")
     fractionTemplate = stringResource(Res.string.report_score_fraction, "{0}", "{1}")
 }
@@ -178,7 +185,7 @@ class ScoreReportScreenTest : ComposeUiTestRunner() {
 
             onNodeWithTag(ScoreReportScreenTags.HEADER).assertExists()
             onNodeWithTag(ScoreReportScreenTags.HEADER_SCORE)
-                .assertTextEquals("${format.score(report.grandTotal)} / ${format.score(report.grandMax)}")
+                .assertTextEquals(format.fraction(report.grandTotal, report.grandMax))
             onNodeWithTag(ScoreReportScreenTags.HEADER_SUMMARY).assertTextEquals(report.overallSummary)
         }
 
@@ -196,7 +203,7 @@ class ScoreReportScreenTest : ComposeUiTestRunner() {
                 onNodeWithTag(ScoreReportScreenTags.LIST)
                     .performScrollToNode(hasTestTag(ScoreReportScreenTags.sectionScore(i)))
                 onNodeWithTag(ScoreReportScreenTags.sectionScore(i))
-                    .assertTextEquals("${format.score(section.total)} / ${format.score(section.maxPoints)}")
+                    .assertTextEquals(format.fraction(section.total, section.maxPoints))
                 onNodeWithTag(ScoreReportScreenTags.sectionProgress(i))
                     .assertRangeInfoEquals(ProgressBarRangeInfo(safeRatio(section.total, section.maxPoints), 0f..1f))
             }
@@ -246,19 +253,37 @@ class ScoreReportScreenTest : ComposeUiTestRunner() {
         }
 
     @Test
-    fun questionRow_showsAllSevenFieldsAndSourceLinkWhenPresent() =
+    fun questionRow_showsFieldsCommentAndSourceLinkWhenPresent() =
         runComposeUiTest {
             val report = reportWith(listOf(2))
-            setContent { ScoreReportScreen(report = report, onAnalyzeAgain = {}) }
+            val format = ReportFormat()
+            setContent {
+                format.Capture()
+                ScoreReportScreen(report = report, onAnalyzeAgain = {})
+            }
 
             onNodeWithTag(ScoreReportScreenTags.question(0, 0)).assertExists()
             onNodeWithTag(ScoreReportScreenTags.questionField(0, 0, "raw")).assertExists()
             onNodeWithTag(ScoreReportScreenTags.questionField(0, 0, "weight")).assertExists()
             onNodeWithTag(ScoreReportScreenTags.questionField(0, 0, "weighted")).assertExists()
-            onNodeWithTag(ScoreReportScreenTags.questionField(0, 0, "comment")).assertExists()
+            onNodeWithTag(ScoreReportScreenTags.questionField(0, 0, "comment"))
+                .assertTextEquals(format.field(format.commentLabel, report.sections[0].questions[0].comment))
             onNodeWithTag(ScoreReportScreenTags.sourceLink(0, 0)).assertExists()
 
             onNodeWithTag(ScoreReportScreenTags.sourceLink(0, 1)).assertDoesNotExist()
+        }
+
+    @Test
+    fun blankSourceUrl_rendersNoSourceLink() =
+        runComposeUiTest {
+            val base = reportWith(listOf(1))
+            val section = base.sections[0]
+            val report =
+                base.copy(sections = listOf(section.copy(questions = section.questions.map { it.copy(sourceUrl = "  ") })))
+            setContent { ScoreReportScreen(report = report, onAnalyzeAgain = {}) }
+
+            onNodeWithTag(ScoreReportScreenTags.question(0, 0)).assertExists()
+            onNodeWithTag(ScoreReportScreenTags.sourceLink(0, 0)).assertDoesNotExist()
         }
 
     @Test
