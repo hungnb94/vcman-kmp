@@ -5,6 +5,7 @@ import com.tekome.vcman.data.AnalysisException
 import com.tekome.vcman.data.LlmProvider
 import com.tekome.vcman.data.LlmRequestConfig
 import com.tekome.vcman.data.ScoreAnalysisService
+import com.tekome.vcman.domain.LanguageTag
 import com.tekome.vcman.domain.ProjectScoreReport
 import com.tekome.vcman.domain.RubricInput
 import kotlinx.coroutines.CompletableDeferred
@@ -23,6 +24,8 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 
+private val VI = LanguageTag.parse("vi")
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class ScoreAnalysisViewModelTest {
     /** Records every call and defers to [pending] so a test can hold the job in `Loading`. */
@@ -37,16 +40,20 @@ class ScoreAnalysisViewModelTest {
             private set
         var lastConfig: LlmRequestConfig? = null
             private set
+        var lastOutputLanguage: LanguageTag? = null
+            private set
 
         override suspend fun analyze(
             rubric: RubricInput,
             subjectQuery: String,
             config: LlmRequestConfig,
+            outputLanguage: LanguageTag,
         ): Result<ProjectScoreReport> {
             calls++
             lastRubric = rubric
             lastSubjectQuery = subjectQuery
             lastConfig = config
+            lastOutputLanguage = outputLanguage
             return pending.await()
         }
 
@@ -83,24 +90,38 @@ class ScoreAnalysisViewModelTest {
                 val service = FakeScoreAnalysisService()
                 val vm = ScoreAnalysisViewModel(service = service)
 
-                vm.analyze(blank, "Rubric text", "Acme", "sk-valid-key")
+                vm.analyze(blank, "Rubric text", "Acme", "sk-valid-key", VI)
 
                 val state = assertIs<AnalysisUiState.Error>(vm.uiState.value)
                 assertEquals(0, service.calls)
-                assertFalse("sk-valid-key" in state.message)
+                assertEquals(
+                    AnalysisFailure.MissingFields(listOf(RequiredFieldId.RubricTitle)),
+                    state.failure,
+                )
+                assertFalse("sk-valid-key" in state.toString())
             }
         }
 
     @Test
-    fun analyze_allFieldsBlankListsEveryMissingLabel() =
+    fun analyze_allFieldsBlankListsEveryMissingField() =
         runTest {
             val service = FakeScoreAnalysisService()
             val vm = ScoreAnalysisViewModel(service = service)
 
-            vm.analyze("", "  ", "", "")
+            vm.analyze("", "  ", "", "", VI)
 
             val state = assertIs<AnalysisUiState.Error>(vm.uiState.value)
-            assertEquals("Please fill in: Rubric title, Rubric text, Subject, API key.", state.message)
+            assertEquals(
+                AnalysisFailure.MissingFields(
+                    listOf(
+                        RequiredFieldId.RubricTitle,
+                        RequiredFieldId.RubricText,
+                        RequiredFieldId.Subject,
+                        RequiredFieldId.ApiKey,
+                    ),
+                ),
+                state.failure,
+            )
             assertEquals(0, service.calls)
         }
 
@@ -110,7 +131,7 @@ class ScoreAnalysisViewModelTest {
             val service = FakeScoreAnalysisService()
             val vm = ScoreAnalysisViewModel(service = service)
 
-            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key")
+            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key", VI)
 
             assertEquals(AnalysisUiState.Loading, vm.uiState.value)
             assertEquals(1, service.calls)
@@ -122,10 +143,11 @@ class ScoreAnalysisViewModelTest {
             val service = FakeScoreAnalysisService()
             val vm = ScoreAnalysisViewModel(service = service)
 
-            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key")
+            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key", VI)
 
             assertEquals(RubricInput(title = "Title", text = "Rubric text"), service.lastRubric)
             assertEquals("Acme", service.lastSubjectQuery)
+            assertEquals(VI, service.lastOutputLanguage)
             val config = service.lastConfig
             assertEquals(LlmProvider.Anthropic, config?.provider)
             assertNull(config?.searchTool)
@@ -139,7 +161,7 @@ class ScoreAnalysisViewModelTest {
             val vm = ScoreAnalysisViewModel(service = service)
             val report = sampleReport()
 
-            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key")
+            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key", VI)
             service.complete(Result.success(report))
 
             val state = assertIs<AnalysisUiState.Success>(vm.uiState.value)
@@ -152,11 +174,11 @@ class ScoreAnalysisViewModelTest {
             val service = FakeScoreAnalysisService()
             val vm = ScoreAnalysisViewModel(service = service)
 
-            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key")
+            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key", VI)
             service.complete(Result.failure(AnalysisException(AnalysisError.Network)))
 
             val state = assertIs<AnalysisUiState.Error>(vm.uiState.value)
-            assertEquals(userMessageFor(AnalysisError.Network), state.message)
+            assertEquals(AnalysisFailure.Network, state.failure)
         }
 
     @Test
@@ -165,11 +187,12 @@ class ScoreAnalysisViewModelTest {
             val service = FakeScoreAnalysisService()
             val vm = ScoreAnalysisViewModel(service = service)
 
-            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key")
+            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key", VI)
             service.complete(Result.failure(IllegalStateException("apiKey=sk-123 boom")))
 
             val state = assertIs<AnalysisUiState.Error>(vm.uiState.value)
-            assertEquals(UNEXPECTED_ERROR_MESSAGE, state.message)
+            assertEquals(AnalysisFailure.Unexpected, state.failure)
+            assertFalse("sk-123" in state.toString())
         }
 
     @Test
@@ -178,8 +201,8 @@ class ScoreAnalysisViewModelTest {
             val service = FakeScoreAnalysisService()
             val vm = ScoreAnalysisViewModel(service = service)
 
-            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key")
-            vm.analyze("Other title", "Other text", "Other", "other-key")
+            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key", VI)
+            vm.analyze("Other title", "Other text", "Other", "other-key", VI)
 
             assertEquals(AnalysisUiState.Loading, vm.uiState.value)
             assertEquals(1, service.calls)
@@ -191,7 +214,7 @@ class ScoreAnalysisViewModelTest {
             val service = FakeScoreAnalysisService()
             val vm = ScoreAnalysisViewModel(service = service)
 
-            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key")
+            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key", VI)
             vm.reset()
             service.complete(Result.success(sampleReport()))
 
@@ -203,7 +226,7 @@ class ScoreAnalysisViewModelTest {
         runTest {
             val service = FakeScoreAnalysisService()
             val vm = ScoreAnalysisViewModel(service = service)
-            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key")
+            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key", VI)
             service.complete(Result.success(sampleReport()))
             assertIs<AnalysisUiState.Success>(vm.uiState.value)
 
@@ -216,7 +239,7 @@ class ScoreAnalysisViewModelTest {
     fun reset_fromErrorReturnsIdle() =
         runTest {
             val vm = ScoreAnalysisViewModel(service = FakeScoreAnalysisService())
-            vm.analyze("", "Rubric text", "Acme", "sk-valid-key")
+            vm.analyze("", "Rubric text", "Acme", "sk-valid-key", VI)
             assertIs<AnalysisUiState.Error>(vm.uiState.value)
 
             vm.reset()
@@ -236,15 +259,16 @@ class ScoreAnalysisViewModelTest {
                         rubric: RubricInput,
                         subjectQuery: String,
                         config: LlmRequestConfig,
-                    ) = current.analyze(rubric, subjectQuery, config)
+                        outputLanguage: LanguageTag,
+                    ) = current.analyze(rubric, subjectQuery, config, outputLanguage)
                 }
             val vm = ScoreAnalysisViewModel(service = delegatingService)
 
-            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key")
+            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key", VI)
             vm.reset()
             current = secondService
             secondService.complete(Result.success(sampleReport()))
-            vm.analyze("Title2", "Rubric text2", "Beta", "sk-valid-key-2")
+            vm.analyze("Title2", "Rubric text2", "Beta", "sk-valid-key-2", VI)
 
             assertIs<AnalysisUiState.Success>(vm.uiState.value)
             assertEquals(1, firstService.calls)
@@ -256,10 +280,10 @@ class ScoreAnalysisViewModelTest {
         runTest {
             val service = FakeScoreAnalysisService()
             val vm = ScoreAnalysisViewModel(service = service)
-            vm.analyze("", "Rubric text", "Acme", "sk-valid-key")
+            vm.analyze("", "Rubric text", "Acme", "sk-valid-key", VI)
             assertIs<AnalysisUiState.Error>(vm.uiState.value)
 
-            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key")
+            vm.analyze("Title", "Rubric text", "Acme", "sk-valid-key", VI)
 
             assertEquals(AnalysisUiState.Loading, vm.uiState.value)
             assertEquals(1, service.calls)

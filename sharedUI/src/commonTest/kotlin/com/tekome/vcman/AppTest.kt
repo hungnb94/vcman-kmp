@@ -9,7 +9,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -18,8 +18,10 @@ import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.text.AnnotatedString
 import com.tekome.vcman.data.LlmRequestConfig
 import com.tekome.vcman.data.ScoreAnalysisService
+import com.tekome.vcman.domain.LanguageTag
 import com.tekome.vcman.domain.ProjectScoreReport
 import com.tekome.vcman.domain.RubricInput
+import com.tekome.vcman.presentation.AnalysisFailure
 import com.tekome.vcman.presentation.AnalysisUiState
 import com.tekome.vcman.presentation.ScoreAnalysisViewModel
 import com.tekome.vcman.ui.ComposeUiTestRunner
@@ -41,7 +43,7 @@ private val fixtureReport =
 class AnalysisUiStateProjectionTest {
     private data class Expected(
         val loading: Boolean,
-        val error: String?,
+        val error: AnalysisFailure?,
     )
 
     private val cases: List<Pair<AnalysisUiState, Expected>> =
@@ -49,14 +51,14 @@ class AnalysisUiStateProjectionTest {
             AnalysisUiState.Idle to Expected(loading = false, error = null),
             AnalysisUiState.Loading to Expected(loading = true, error = null),
             AnalysisUiState.Success(fixtureReport) to Expected(loading = false, error = null),
-            AnalysisUiState.Error("Rate limited") to Expected(loading = false, error = "Rate limited"),
+            AnalysisUiState.Error(AnalysisFailure.Network) to Expected(loading = false, error = AnalysisFailure.Network),
         )
 
     @Test
     fun projection_matchesExpectedForEveryState() {
         cases.forEach { (state, expected) ->
             assertEquals(expected.loading, state.isLoading, "isLoading for $state")
-            assertEquals(expected.error, state.errorMessageOrNull, "errorMessageOrNull for $state")
+            assertEquals(expected.error, state.errorFailureOrNull, "errorFailureOrNull for $state")
         }
     }
 }
@@ -103,13 +105,13 @@ class AppContentTest : ComposeUiTestRunner() {
         runComposeUiTest {
             setContent {
                 AppContent(
-                    uiState = AnalysisUiState.Error("Rate limited"),
+                    uiState = AnalysisUiState.Error(AnalysisFailure.AmbiguousSubject("Rate limited")),
                     onAnalyze = { _, _, _, _ -> },
                     onAnalyzeAgain = {},
                 )
             }
 
-            onNodeWithTag(SetupScreenTags.ERROR).assertTextEquals("Rate limited")
+            onNodeWithTag(SetupScreenTags.ERROR).assertTextContains("Rate limited", substring = true)
             onNodeWithTag(SetupScreenTags.LOADING).assertDoesNotExist()
             onNodeWithTag(SetupScreenTags.ANALYZE).assertIsEnabled()
         }
@@ -198,6 +200,7 @@ class AppWiringTest : ComposeUiTestRunner() {
             rubric: RubricInput,
             subjectQuery: String,
             config: LlmRequestConfig,
+            outputLanguage: LanguageTag,
         ): Result<ProjectScoreReport> {
             error("should not be called when validation fails")
         }
@@ -210,6 +213,7 @@ class AppWiringTest : ComposeUiTestRunner() {
             rubric: RubricInput,
             subjectQuery: String,
             config: LlmRequestConfig,
+            outputLanguage: LanguageTag,
         ): Result<ProjectScoreReport> = deferred.await()
     }
 
@@ -224,6 +228,7 @@ class AppWiringTest : ComposeUiTestRunner() {
             rubric: RubricInput,
             subjectQuery: String,
             config: LlmRequestConfig,
+            outputLanguage: LanguageTag,
         ): Result<ProjectScoreReport> {
             calls += listOf(rubric.title, rubric.text, subjectQuery, config.apiKey.value)
             return results[callIndex++].await()

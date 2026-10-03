@@ -1,10 +1,13 @@
 package com.tekome.vcman.data
 
+import com.tekome.vcman.domain.LanguageTag
 import com.tekome.vcman.domain.RubricInput
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+
+private val EN = LanguageTag.Default
 
 class PromptBuilderTest {
     @Test
@@ -155,7 +158,7 @@ class PromptBuilderTest {
     @Test
     fun buildUserPrompt_constructsAnalysisRequestWithSubjectQueryInXmlTag() {
         val subjectQuery = "Stripe Inc. (Fintech payments company)"
-        val userPrompt = PromptBuilder.buildUserPrompt(subjectQuery)
+        val userPrompt = PromptBuilder.buildUserPrompt(subjectQuery, EN)
 
         assertTrue(
             userPrompt.contains("Please analyze and score the following subject according to the evaluation rubric"),
@@ -170,7 +173,7 @@ class PromptBuilderTest {
     @Test
     fun buildUserPrompt_multilineSubjectQueryPreservesCleanIndentation() {
         val multilineQuery = "Stripe Inc.\nFintech payments company\nSeries I"
-        val userPrompt = PromptBuilder.buildUserPrompt(multilineQuery)
+        val userPrompt = PromptBuilder.buildUserPrompt(multilineQuery, EN)
 
         assertFalse(
             userPrompt.startsWith(" "),
@@ -189,8 +192,8 @@ class PromptBuilderTest {
 
         val systemPrompt1 = PromptBuilder.buildSystemPrompt(rubric)
         val systemPrompt2 = PromptBuilder.buildSystemPrompt(rubric)
-        val userPrompt1 = PromptBuilder.buildUserPrompt(subject)
-        val userPrompt2 = PromptBuilder.buildUserPrompt(subject)
+        val userPrompt1 = PromptBuilder.buildUserPrompt(subject, EN)
+        val userPrompt2 = PromptBuilder.buildUserPrompt(subject, EN)
 
         assertEquals(systemPrompt1, systemPrompt2, "buildSystemPrompt must be purely deterministic")
         assertEquals(userPrompt1, userPrompt2, "buildUserPrompt must be purely deterministic")
@@ -206,7 +209,7 @@ class PromptBuilderTest {
         val untrimmedSubject = "   Untrimmed Subject Query   "
 
         val systemPrompt = PromptBuilder.buildSystemPrompt(untrimmedRubric)
-        val userPrompt = PromptBuilder.buildUserPrompt(untrimmedSubject)
+        val userPrompt = PromptBuilder.buildUserPrompt(untrimmedSubject, EN)
 
         assertTrue(
             systemPrompt.contains("<rubric_title>\nWhitespace Title\n</rubric_title>"),
@@ -233,8 +236,8 @@ class PromptBuilderTest {
             "Companion object delegation must match DefaultPromptBuilder for system prompt",
         )
         assertEquals(
-            DefaultPromptBuilder.buildUserPrompt(subject),
-            PromptBuilder.buildUserPrompt(subject),
+            DefaultPromptBuilder.buildUserPrompt(subject, EN),
+            PromptBuilder.buildUserPrompt(subject, EN),
             "Companion object delegation must match DefaultPromptBuilder for user prompt",
         )
     }
@@ -245,12 +248,15 @@ class PromptBuilderTest {
             object : PromptBuilder {
                 override fun buildSystemPrompt(rubric: RubricInput): String = "mock-system-prompt"
 
-                override fun buildUserPrompt(subjectQuery: String): String = "mock-user-prompt"
+                override fun buildUserPrompt(
+                    subjectQuery: String,
+                    outputLanguage: LanguageTag,
+                ): String = "mock-user-prompt"
             }
 
         val dummyRubric = RubricInput(title = "Test", text = "Test")
         assertEquals("mock-system-prompt", mockBuilder.buildSystemPrompt(dummyRubric))
-        assertEquals("mock-user-prompt", mockBuilder.buildUserPrompt("Test Subject"))
+        assertEquals("mock-user-prompt", mockBuilder.buildUserPrompt("Test Subject", EN))
     }
 
     @Test
@@ -283,5 +289,32 @@ class PromptBuilderTest {
             prompt.contains("Ensure weightedScore equals rawScore"),
             "System prompt must not contain weightedScore arithmetic instructions",
         )
+    }
+
+    @Test
+    fun buildUserPrompt_includesOutputLanguageTagAndKeepJsonKeysDirective() {
+        val userPrompt = PromptBuilder.buildUserPrompt("Acme", LanguageTag.parse("vi"))
+
+        assertTrue(userPrompt.contains("<output_language>"), "Must wrap the language directive in <output_language>")
+        assertTrue(userPrompt.contains("\"vi\""), "Must name the requested language tag")
+        assertTrue(
+            userPrompt.contains("Keep every JSON key, enum value and number exactly as defined by the schema"),
+            "Must tell the model not to translate JSON keys/enums/numbers",
+        )
+    }
+
+    @Test
+    fun buildUserPrompt_differentLanguagesDifferOnlyByTag() {
+        val vi = PromptBuilder.buildUserPrompt("Acme", LanguageTag.parse("vi"))
+        val en = PromptBuilder.buildUserPrompt("Acme", LanguageTag.parse("en"))
+
+        assertEquals(vi.replace("\"vi\"", "\"en\""), en)
+    }
+
+    @Test
+    fun buildSystemPrompt_doesNotDependOnOutputLanguage() {
+        val rubric = RubricInput(title = "T", text = "Body")
+
+        assertFalse(PromptBuilder.buildSystemPrompt(rubric).contains("<output_language>"))
     }
 }

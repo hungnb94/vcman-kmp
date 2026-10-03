@@ -17,6 +17,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -32,15 +33,23 @@ import androidx.compose.ui.unit.dp
 import com.tekome.vcman.domain.ProjectScoreReport
 import com.tekome.vcman.domain.QuestionScoreResult
 import com.tekome.vcman.domain.ScoreSectionResult
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
+import vcman.sharedui.generated.resources.Res
+import vcman.sharedui.generated.resources.decimal_separator
+import vcman.sharedui.generated.resources.report_analyze_again
+import vcman.sharedui.generated.resources.report_comment
+import vcman.sharedui.generated.resources.report_field_line
+import vcman.sharedui.generated.resources.report_no_questions
+import vcman.sharedui.generated.resources.report_question_title
+import vcman.sharedui.generated.resources.report_raw_score
+import vcman.sharedui.generated.resources.report_score_fraction
+import vcman.sharedui.generated.resources.report_source
+import vcman.sharedui.generated.resources.report_weight
+import vcman.sharedui.generated.resources.report_weighted
 import kotlin.math.abs
 import kotlin.math.roundToLong
 
-/**
- * Stable node identifiers for [ScoreReportScreen]. Section/question tags are generated from their
- * (immutable, per-`Success`) list index rather than domain data (name/id), because
- * [ScoreSectionResult.name] and [QuestionScoreResult.id] carry no uniqueness guarantee (LLM
- * output) - see also [defaultExpanded] and the `key` used in the root [LazyColumn].
- */
 internal object ScoreReportScreenTags {
     const val LIST = "score_report_list"
     const val HEADER = "score_report_header"
@@ -76,38 +85,29 @@ internal object ScoreReportScreenTags {
     ) = "score_report_source_${sectionIndex}_$questionIndex"
 }
 
-/** Number of sections expanded by default when a report first renders. Data, not a branch. */
 private const val DEFAULT_EXPANDED_COUNT = 1
 
-/**
- * Which section indices are expanded by default: the first [DEFAULT_EXPANDED_COUNT] sections.
- * An empty `sections` list naturally yields an empty set - no size check needed.
- */
 internal fun defaultExpanded(sections: List<ScoreSectionResult>): Set<Int> = sections.indices.take(DEFAULT_EXPANDED_COUNT).toSet()
 
 internal fun Set<Int>.toggle(index: Int): Set<Int> = if (index in this) this - index else this + index
 
-/**
- * Ratio of [value] over [max] for a progress indicator, guarded against division by zero,
- * `NaN` and negative inputs (e.g. a section/report with zero max points).
- */
 internal fun safeRatio(
     value: Double,
     max: Double,
 ): Float = if (max > 0.0 && value.isFinite()) (value / max).toFloat().coerceIn(0f, 1f) else 0f
 
-/**
- * Formats [value] with at most one decimal place, without `String.format` (JVM-only, does not
- * compile for the `iosArm64`/`iosSimulatorArm64` targets of `commonMain`).
- */
-internal fun formatScore(value: Double): String {
+internal fun formatScore(
+    value: Double,
+    decimalSeparator: String,
+): String {
+    if (!value.isFinite()) return "-"
     val tenths = (value * 10).roundToLong()
     val sign = if (tenths < 0) "-" else ""
     val absTenths = abs(tenths)
     return if (absTenths % 10 == 0L) {
         "$sign${absTenths / 10}"
     } else {
-        "$sign${absTenths / 10}.${absTenths % 10}"
+        "$sign${absTenths / 10}$decimalSeparator${absTenths % 10}"
     }
 }
 
@@ -117,36 +117,31 @@ private val expandedSectionsSaver =
         restore = { it.toSet() },
     )
 
-/**
- * Displays a [ProjectScoreReport]: a header (subject, grand total/max, progress, summary), one
- * card per section (any count, from [ProjectScoreReport.sections]) with an expandable list of
- * questions, and an "Analyze again" action. Stateless w.r.t. business logic: all data comes from
- * [report], the only mutable state here is which section cards are expanded (pure UI state).
- */
 @Composable
 fun ScoreReportScreen(
     modifier: Modifier = Modifier,
     report: ProjectScoreReport,
     onAnalyzeAgain: () -> Unit,
 ) {
-    // A new report resets which sections are expanded back to the default.
     var expandedSections by
         rememberSaveable(report, stateSaver = expandedSectionsSaver) {
             mutableStateOf(defaultExpanded(report.sections))
         }
 
-    // Single root LazyColumn for the whole screen (header + sections + actions) - nesting a
-    // LazyColumn inside a Column(Modifier.verticalScroll(...)) throws "infinity maximum height".
+    val decimalSeparator = stringResource(Res.string.decimal_separator)
+    val fmt: (Double) -> String =
+        remember(decimalSeparator) { { formatScore(it, decimalSeparator) } }
+
     LazyColumn(modifier = modifier.fillMaxSize().testTag(ScoreReportScreenTags.LIST)) {
-        item(key = "header") { ReportHeader(report) }
+        item(key = "header") { ReportHeader(report, fmt) }
         itemsIndexed(
             items = report.sections,
-            // Index-based: unique even when two sections share a name (LLM output, see class doc).
             key = { index, _ -> "section-$index" },
         ) { index, section ->
             SectionCard(
                 sectionIndex = index,
                 section = section,
+                fmt = fmt,
                 expanded = index in expandedSections,
                 onToggle = { expandedSections = expandedSections.toggle(index) },
             )
@@ -154,22 +149,30 @@ fun ScoreReportScreen(
         item(key = "actions") {
             Button(
                 onClick = onAnalyzeAgain,
-                modifier = Modifier.fillMaxWidth().padding(16.dp).testTag(ScoreReportScreenTags.ANALYZE_AGAIN),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .testTag(ScoreReportScreenTags.ANALYZE_AGAIN),
             ) {
-                Text("Analyze again")
+                Text(stringResource(Res.string.report_analyze_again))
             }
         }
     }
 }
 
 @Composable
-private fun ReportHeader(report: ProjectScoreReport) {
+private fun ReportHeader(
+    report: ProjectScoreReport,
+    fmt: (Double) -> String,
+) {
+    val score = scoreFraction(report.grandTotal, report.grandMax, fmt)
     Column(
         modifier = Modifier.fillMaxWidth().padding(16.dp).testTag(ScoreReportScreenTags.HEADER),
     ) {
         Text(report.subjectName, style = MaterialTheme.typography.headlineSmall)
         Text(
-            "${formatScore(report.grandTotal)} / ${formatScore(report.grandMax)}",
+            score,
             modifier = Modifier.testTag(ScoreReportScreenTags.HEADER_SCORE),
         )
         LinearProgressIndicator(
@@ -179,10 +182,13 @@ private fun ReportHeader(report: ProjectScoreReport) {
                     .fillMaxWidth()
                     .padding(vertical = 4.dp)
                     .semantics {
-                        stateDescription = "${formatScore(report.grandTotal)} / ${formatScore(report.grandMax)}"
+                        stateDescription = score
                     }.testTag(ScoreReportScreenTags.HEADER_PROGRESS),
         )
-        Text(report.overallSummary, modifier = Modifier.testTag(ScoreReportScreenTags.HEADER_SUMMARY))
+        Text(
+            report.overallSummary,
+            modifier = Modifier.testTag(ScoreReportScreenTags.HEADER_SUMMARY),
+        )
     }
 }
 
@@ -192,7 +198,9 @@ private fun SectionCard(
     section: ScoreSectionResult,
     expanded: Boolean,
     onToggle: () -> Unit,
+    fmt: (Double) -> String,
 ) {
+    val score = scoreFraction(section.total, section.maxPoints, fmt)
     Card(
         modifier =
             Modifier
@@ -204,15 +212,21 @@ private fun SectionCard(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .toggleable(value = expanded, role = Role.Button, onValueChange = { onToggle() })
-                    .padding(16.dp)
+                    .toggleable(
+                        value = expanded,
+                        role = Role.Button,
+                        onValueChange = { onToggle() },
+                    ).padding(16.dp)
                     .testTag(ScoreReportScreenTags.sectionToggle(sectionIndex)),
         ) {
             Text(section.name, modifier = Modifier.fillMaxWidth())
         }
         Text(
-            "${formatScore(section.total)} / ${formatScore(section.maxPoints)}",
-            modifier = Modifier.padding(horizontal = 16.dp).testTag(ScoreReportScreenTags.sectionScore(sectionIndex)),
+            score,
+            modifier =
+                Modifier
+                    .padding(horizontal = 16.dp)
+                    .testTag(ScoreReportScreenTags.sectionScore(sectionIndex)),
         )
         LinearProgressIndicator(
             progress = { safeRatio(section.total, section.maxPoints) },
@@ -221,46 +235,57 @@ private fun SectionCard(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
                     .semantics {
-                        stateDescription = "${formatScore(section.total)} / ${formatScore(section.maxPoints)}"
+                        stateDescription = score
                     }.testTag(ScoreReportScreenTags.sectionProgress(sectionIndex)),
         )
         if (expanded) {
             if (section.questions.isEmpty()) {
-                // Literal kept with diacritics on purpose: chốt qua AskUserQuestion (01-spec.md AC
-                // #6), even though the rest of this app's Vietnamese copy (SetupScreen.kt) is
-                // written without diacritics.
                 Text(
-                    "Không có câu hỏi",
-                    modifier = Modifier.padding(16.dp).testTag(ScoreReportScreenTags.sectionEmpty(sectionIndex)),
+                    stringResource(Res.string.report_no_questions),
+                    modifier =
+                        Modifier
+                            .padding(16.dp)
+                            .testTag(ScoreReportScreenTags.sectionEmpty(sectionIndex)),
                 )
             } else {
-                // Plain forEach, not a nested LazyColumn: a section's question count is small and
-                // bounded by the rubric, so no windowing is needed here.
                 section.questions.forEachIndexed { questionIndex, question ->
-                    QuestionRow(sectionIndex, questionIndex, question)
+                    QuestionRow(sectionIndex, questionIndex, question, fmt)
                 }
             }
         }
     }
 }
 
-/** One "label: value" row rendered for every question. Adding a field = one new entry here. */
+@Composable
+private fun scoreFraction(
+    value: Double,
+    max: Double,
+    fmt: (Double) -> String,
+): String = stringResource(Res.string.report_score_fraction, fmt(value), fmt(max))
+
 private data class QuestionField(
     val key: String,
-    val label: String,
-    val value: (QuestionScoreResult) -> String,
+    val label: StringResource,
+    val value: @Composable (QuestionScoreResult, (Double) -> String) -> String,
 )
 
 private val questionFields =
     listOf(
-        QuestionField(key = "raw", label = "Raw score") {
-            "${formatScore(it.rawScore)} / ${formatScore(QuestionScoreResult.MAX_RAW_SCORE)}"
+        QuestionField(key = "raw", label = Res.string.report_raw_score) { question, fmt ->
+            scoreFraction(question.rawScore, QuestionScoreResult.MAX_RAW_SCORE, fmt)
         },
-        QuestionField(key = "weight", label = "Weight") { formatScore(it.weight) },
-        QuestionField(key = "weighted", label = "Weighted") {
-            "${formatScore(it.weightedScore)} / ${formatScore(it.maxPoints)}"
+        QuestionField(key = "weight", label = Res.string.report_weight) { question, fmt ->
+            fmt(
+                question.weight,
+            )
         },
-        QuestionField(key = "comment", label = "Comment") { it.comment },
+        QuestionField(key = "weighted", label = Res.string.report_weighted) { question, fmt ->
+            scoreFraction(question.weightedScore, question.maxPoints, fmt)
+        },
+        QuestionField(
+            key = "comment",
+            label = Res.string.report_comment,
+        ) { question, _ -> question.comment },
     )
 
 @Composable
@@ -268,6 +293,7 @@ private fun QuestionRow(
     sectionIndex: Int,
     questionIndex: Int,
     question: QuestionScoreResult,
+    fmt: (Double) -> String,
 ) {
     Column(
         modifier =
@@ -276,10 +302,17 @@ private fun QuestionRow(
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .testTag(ScoreReportScreenTags.question(sectionIndex, questionIndex)),
     ) {
-        Text("${question.id}. ${question.label}", fontWeight = FontWeight.SemiBold)
+        Text(
+            stringResource(Res.string.report_question_title, question.id, question.label),
+            fontWeight = FontWeight.SemiBold,
+        )
         questionFields.forEach { field ->
             Text(
-                "${field.label}: ${field.value(question)}",
+                stringResource(
+                    Res.string.report_field_line,
+                    stringResource(field.label),
+                    field.value(question, fmt),
+                ),
                 modifier =
                     Modifier.testTag(
                         ScoreReportScreenTags.questionField(sectionIndex, questionIndex, field.key),
@@ -289,10 +322,16 @@ private fun QuestionRow(
         question.sourceUrl?.takeIf { it.isNotBlank() }?.let { url ->
             val uriHandler = LocalUriHandler.current
             TextButton(
-                onClick = { runCatching { uriHandler.openUri(url) } }, // malformed/unopenable URL must not crash UI
-                modifier = Modifier.testTag(ScoreReportScreenTags.sourceLink(sectionIndex, questionIndex)),
+                onClick = { runCatching { uriHandler.openUri(url) } },
+                modifier =
+                    Modifier.testTag(
+                        ScoreReportScreenTags.sourceLink(
+                            sectionIndex,
+                            questionIndex,
+                        ),
+                    ),
             ) {
-                Text("Source")
+                Text(stringResource(Res.string.report_source))
             }
         }
     }
@@ -361,7 +400,6 @@ private val emptyPreviewReport =
         sections = emptyList(),
     )
 
-/** 0-section report case, self-demonstrating the safe-render path (see also AC #6/#9 tests). */
 @Composable
 @Preview
 private fun ScoreReportScreenEmptyPreview() {

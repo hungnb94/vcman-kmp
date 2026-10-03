@@ -1,11 +1,15 @@
 package com.tekome.vcman.data
 
+import com.tekome.vcman.domain.LanguageTag
 import com.tekome.vcman.domain.RubricInput
 
 interface PromptBuilder {
     fun buildSystemPrompt(rubric: RubricInput): String
 
-    fun buildUserPrompt(subjectQuery: String): String
+    fun buildUserPrompt(
+        subjectQuery: String,
+        outputLanguage: LanguageTag,
+    ): String
 
     companion object : PromptBuilder by DefaultPromptBuilder
 }
@@ -24,14 +28,23 @@ internal object DefaultPromptBuilder : PromptBuilder {
         ).joinToString("\n\n")
     }
 
-    override fun buildUserPrompt(subjectQuery: String): String {
+    override fun buildUserPrompt(
+        subjectQuery: String,
+        outputLanguage: LanguageTag,
+    ): String {
         val cleanQuery = subjectQuery.trim()
         return listOf(
             "Please analyze and score the following subject according to the evaluation rubric.",
             "<subject_query>\n$cleanQuery\n</subject_query>",
+            "<output_language>\n${outputLanguageDirective(outputLanguage)}\n</output_language>",
         ).joinToString("\n\n")
     }
 }
+
+private fun outputLanguageDirective(language: LanguageTag): String =
+    "Write all human-readable text values (subjectName, overallSummary, section names, question labels, " +
+        "comments) in the language with BCP-47 tag \"${language.value}\". " +
+        "Keep every JSON key, enum value and number exactly as defined by the schema; do not translate or localize them."
 
 private const val BASE_SYSTEM_INSTRUCTIONS: String = """You are an expert venture capital analyst evaluating investment opportunities.
 Analyze the target subject strictly according to the evaluation rubric provided below.

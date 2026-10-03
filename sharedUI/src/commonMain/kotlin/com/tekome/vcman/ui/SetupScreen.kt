@@ -30,13 +30,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.tekome.vcman.data.SampleRubric
 import com.tekome.vcman.data.SampleRubrics
+import org.jetbrains.compose.resources.stringResource
+import vcman.sharedui.generated.resources.Res
+import vcman.sharedui.generated.resources.setup_analyze
+import vcman.sharedui.generated.resources.setup_api_key_label
+import vcman.sharedui.generated.resources.setup_load_sample
+import vcman.sharedui.generated.resources.setup_rubric_text_label
+import vcman.sharedui.generated.resources.setup_rubric_title_label
+import vcman.sharedui.generated.resources.setup_subject_label
 
-/**
- * Immutable snapshot of the four [SetupScreen] inputs. Owned by the caller (see `AppContent`), not
- * by [SetupScreen] itself, so it survives whatever screen is shown next (stateless composable).
- *
- * In-memory only - never log or persist an instance of this class ([apiKey] is a secret).
- */
 data class SetupInput(
     val rubricTitle: String = "",
     val rubricText: String = "",
@@ -46,7 +48,6 @@ data class SetupInput(
     override fun toString(): String = "SetupInput(rubricTitle=$rubricTitle, rubricText=$rubricText, subject=$subject, apiKey=***)"
 }
 
-/** Stable node identifiers for [SetupScreen], so tests do not depend on user-visible labels. */
 internal object SetupScreenTags {
     const val RUBRIC_TITLE = "setup_rubric_title"
     const val RUBRIC_TEXT = "setup_rubric_text"
@@ -79,37 +80,42 @@ fun SetupScreen(
         OutlinedTextField(
             value = input.rubricTitle,
             onValueChange = { onInputChange(input.copy(rubricTitle = it)) },
-            label = { Text("Tieu de rubric") },
+            label = { Text(stringResource(Res.string.setup_rubric_title_label)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth().testTag(SetupScreenTags.RUBRIC_TITLE),
         )
         OutlinedTextField(
             value = input.rubricText,
             onValueChange = { onInputChange(input.copy(rubricText = it)) },
-            label = { Text("Noi dung rubric") },
+            label = { Text(stringResource(Res.string.setup_rubric_text_label)) },
             minLines = 6,
             maxLines = 12,
             modifier = Modifier.fillMaxWidth().testTag(SetupScreenTags.RUBRIC_TEXT),
         )
         OutlinedButton(
             onClick = {
-                onInputChange(input.copy(rubricTitle = sampleRubric.title, rubricText = sampleRubric.text))
+                onInputChange(
+                    input.copy(
+                        rubricTitle = sampleRubric.title,
+                        rubricText = sampleRubric.text,
+                    ),
+                )
             },
             modifier = Modifier.testTag(SetupScreenTags.LOAD_SAMPLE),
         ) {
-            Text("Load rubric mau")
+            Text(stringResource(Res.string.setup_load_sample))
         }
         OutlinedTextField(
             value = input.subject,
             onValueChange = { onInputChange(input.copy(subject = it)) },
-            label = { Text("Project / company / coin") },
+            label = { Text(stringResource(Res.string.setup_subject_label)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth().testTag(SetupScreenTags.SUBJECT),
         )
         OutlinedTextField(
             value = input.apiKey,
             onValueChange = { onInputChange(input.copy(apiKey = it)) },
-            label = { Text("API key") },
+            label = { Text(stringResource(Res.string.setup_api_key_label)) },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions =
@@ -134,7 +140,14 @@ fun SetupScreen(
             )
         }
         Button(
-            onClick = { onAnalyze(input.rubricTitle, input.rubricText, input.subject, input.apiKey) },
+            onClick = {
+                onAnalyze(
+                    input.rubricTitle,
+                    input.rubricText,
+                    input.subject,
+                    input.apiKey,
+                )
+            },
             enabled = !loading,
             modifier = Modifier.fillMaxWidth().testTag(SetupScreenTags.ANALYZE),
         ) {
@@ -148,7 +161,7 @@ fun SetupScreen(
                 )
                 Spacer(Modifier.width(8.dp))
             }
-            Text("Phan tich")
+            Text(stringResource(Res.string.setup_analyze))
         }
     }
 }

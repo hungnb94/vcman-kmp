@@ -1,5 +1,6 @@
 package com.tekome.vcman.ui
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,8 +23,15 @@ import com.tekome.vcman.domain.QuestionScoreResult
 import com.tekome.vcman.domain.ScoreSectionResult
 import kotlin.test.Test
 import kotlin.test.assertEquals
-
-// --- Pure helper tests (no Compose runtime needed) ---
+import org.jetbrains.compose.resources.stringResource
+import vcman.sharedui.generated.resources.Res
+import vcman.sharedui.generated.resources.decimal_separator
+import vcman.sharedui.generated.resources.report_comment
+import vcman.sharedui.generated.resources.report_field_line
+import vcman.sharedui.generated.resources.report_raw_score
+import vcman.sharedui.generated.resources.report_score_fraction
+import vcman.sharedui.generated.resources.report_weight
+import vcman.sharedui.generated.resources.report_weighted
 
 class ScoreReportScreenHelpersTest {
     @Test
@@ -34,16 +42,27 @@ class ScoreReportScreenHelpersTest {
         assertEquals(0f, safeRatio(-1.0, 10.0))
         assertEquals(0f, safeRatio(Double.NaN, 10.0))
         assertEquals(0f, safeRatio(1.0, -5.0))
+        assertEquals(0f, safeRatio(1.0, Double.NaN))
+        assertEquals(0f, safeRatio(Double.POSITIVE_INFINITY, 10.0))
     }
 
     @Test
     fun formatScore_isPlatformIndependentAndTrimsTrailingZero() {
-        assertEquals("7", formatScore(7.0))
-        assertEquals("7.5", formatScore(7.46))
-        assertEquals("7.4", formatScore(7.44))
-        assertEquals("0", formatScore(0.0))
-        assertEquals("-0.5", formatScore(-0.5))
-        assertEquals("13", formatScore(12.96))
+        assertEquals("7", formatScore(7.0, "."))
+        assertEquals("7.5", formatScore(7.46, "."))
+        assertEquals("7.4", formatScore(7.44, "."))
+        assertEquals("0", formatScore(0.0, "."))
+        assertEquals("-0.5", formatScore(-0.5, "."))
+        assertEquals("13", formatScore(12.96, "."))
+        assertEquals("-", formatScore(Double.NaN, "."))
+        assertEquals("-", formatScore(Double.POSITIVE_INFINITY, "."))
+    }
+
+    @Test
+    fun formatScore_usesGivenDecimalSeparator() {
+        assertEquals("7,5", formatScore(7.46, ","))
+        assertEquals("-0,5", formatScore(-0.5, ","))
+        assertEquals("7", formatScore(7.0, ","))
     }
 
     @Test
@@ -64,9 +83,41 @@ class ScoreReportScreenHelpersTest {
     private fun section(name: String) = ScoreSectionResult(name = name, questions = emptyList())
 }
 
-// --- Compose UI tests, over a table of report "shapes" (question count per section) ---
+// Captures localized text from composition so expectations hold under any host locale.
+// Exact per-locale text is asserted in LocalizedUiTest.
+private class ReportFormat {
+    var separator = "."
+    var rawLabel = ""
+    var weightLabel = ""
+    var weightedLabel = ""
+    var commentLabel = ""
+    var fieldLineTemplate = ""
+    var fractionTemplate = ""
 
-/** New shape = new row here, not a new test method. */
+    fun score(value: Double) = formatScore(value, separator)
+
+    fun fraction(
+        value: Double,
+        max: Double,
+    ) = fractionTemplate.replace("{0}", score(value)).replace("{1}", score(max))
+
+    fun field(
+        label: String,
+        value: String,
+    ) = fieldLineTemplate.replace("{0}", label).replace("{1}", value)
+}
+
+@Composable
+private fun ReportFormat.Capture() {
+    separator = stringResource(Res.string.decimal_separator)
+    rawLabel = stringResource(Res.string.report_raw_score)
+    weightLabel = stringResource(Res.string.report_weight)
+    weightedLabel = stringResource(Res.string.report_weighted)
+    commentLabel = stringResource(Res.string.report_comment)
+    fieldLineTemplate = stringResource(Res.string.report_field_line, "{0}", "{1}")
+    fractionTemplate = stringResource(Res.string.report_score_fraction, "{0}", "{1}")
+}
+
 private val shapes =
     listOf(
         emptyList(),
@@ -91,9 +142,7 @@ private fun reportWith(shape: List<Int>): ProjectScoreReport =
                             QuestionScoreResult(
                                 id = "Q$questionIndex",
                                 label = "Label $questionIndex",
-                                // Deliberately varies per section/question index (not a fixed
-                                // constant) so a test asserting against these values can't pass by
-                                // coincidence if the screen swaps e.g. rawScore for weightedScore.
+                                // Varies per index so a swapped field (e.g. rawScore/weightedScore) can't pass by coincidence.
                                 weight = 0.5 + (questionIndex % 4) * 0.5,
                                 rawScore = ((sectionIndex * 3 + questionIndex * 2) % 9).toDouble(),
                                 comment = "c$sectionIndex-$questionIndex",
@@ -128,11 +177,15 @@ class ScoreReportScreenTest : ComposeUiTestRunner() {
     fun header_matchesReportProperties() =
         runComposeUiTest {
             val report = reportWith(listOf(2, 3))
-            setContent { ScoreReportScreen(report = report, onAnalyzeAgain = {}) }
+            val format = ReportFormat()
+            setContent {
+                format.Capture()
+                ScoreReportScreen(report = report, onAnalyzeAgain = {})
+            }
 
             onNodeWithTag(ScoreReportScreenTags.HEADER).assertExists()
             onNodeWithTag(ScoreReportScreenTags.HEADER_SCORE)
-                .assertTextEquals("${formatScore(report.grandTotal)} / ${formatScore(report.grandMax)}")
+                .assertTextEquals(format.fraction(report.grandTotal, report.grandMax))
             onNodeWithTag(ScoreReportScreenTags.HEADER_SUMMARY).assertTextEquals(report.overallSummary)
         }
 
@@ -140,13 +193,17 @@ class ScoreReportScreenTest : ComposeUiTestRunner() {
     fun sectionCard_showsScoreMatchingSectionProperties() =
         runComposeUiTest {
             val report = reportWith(listOf(2, 3))
-            setContent { ScoreReportScreen(report = report, onAnalyzeAgain = {}) }
+            val format = ReportFormat()
+            setContent {
+                format.Capture()
+                ScoreReportScreen(report = report, onAnalyzeAgain = {})
+            }
 
             report.sections.forEachIndexed { i, section ->
                 onNodeWithTag(ScoreReportScreenTags.LIST)
                     .performScrollToNode(hasTestTag(ScoreReportScreenTags.sectionScore(i)))
                 onNodeWithTag(ScoreReportScreenTags.sectionScore(i))
-                    .assertTextEquals("${formatScore(section.total)} / ${formatScore(section.maxPoints)}")
+                    .assertTextEquals(format.fraction(section.total, section.maxPoints))
                 onNodeWithTag(ScoreReportScreenTags.sectionProgress(i))
                     .assertRangeInfoEquals(ProgressBarRangeInfo(safeRatio(section.total, section.maxPoints), 0f..1f))
             }
@@ -196,32 +253,48 @@ class ScoreReportScreenTest : ComposeUiTestRunner() {
         }
 
     @Test
-    fun questionRow_showsAllSevenFieldsAndSourceLinkWhenPresent() =
+    fun questionRow_showsFieldsCommentAndSourceLinkWhenPresent() =
         runComposeUiTest {
             val report = reportWith(listOf(2))
-            setContent { ScoreReportScreen(report = report, onAnalyzeAgain = {}) }
+            val format = ReportFormat()
+            setContent {
+                format.Capture()
+                ScoreReportScreen(report = report, onAnalyzeAgain = {})
+            }
 
-            // question 0: sourceUrl present (even index)
             onNodeWithTag(ScoreReportScreenTags.question(0, 0)).assertExists()
             onNodeWithTag(ScoreReportScreenTags.questionField(0, 0, "raw")).assertExists()
             onNodeWithTag(ScoreReportScreenTags.questionField(0, 0, "weight")).assertExists()
             onNodeWithTag(ScoreReportScreenTags.questionField(0, 0, "weighted")).assertExists()
-            onNodeWithTag(ScoreReportScreenTags.questionField(0, 0, "comment")).assertExists()
+            onNodeWithTag(ScoreReportScreenTags.questionField(0, 0, "comment"))
+                .assertTextEquals(format.field(format.commentLabel, report.sections[0].questions[0].comment))
             onNodeWithTag(ScoreReportScreenTags.sourceLink(0, 0)).assertExists()
 
-            // question 1: sourceUrl == null (odd index) -> no link, no crash
             onNodeWithTag(ScoreReportScreenTags.sourceLink(0, 1)).assertDoesNotExist()
+        }
+
+    @Test
+    fun blankSourceUrl_rendersNoSourceLink() =
+        runComposeUiTest {
+            val base = reportWith(listOf(1))
+            val section = base.sections[0]
+            val report =
+                base.copy(sections = listOf(section.copy(questions = section.questions.map { it.copy(sourceUrl = "  ") })))
+            setContent { ScoreReportScreen(report = report, onAnalyzeAgain = {}) }
+
+            onNodeWithTag(ScoreReportScreenTags.question(0, 0)).assertExists()
+            onNodeWithTag(ScoreReportScreenTags.sourceLink(0, 0)).assertDoesNotExist()
         }
 
     @Test
     fun questionFields_matchComputedProperties_acrossDifferentReportShapes() =
         runComposeUiTest {
-            // Two structurally different reports (different question counts in section 0, and -
-            // via reportWith's per-question weight/rawScore formula - different weight/rawScore
-            // values), so a field mixup (e.g. rawScore swapped for weightedScore) can't pass by
-            // coincidence (AC #8: values must match exactly across different report structures).
             var report by mutableStateOf(reportWith(shapes[2]))
-            setContent { ScoreReportScreen(report = report, onAnalyzeAgain = {}) }
+            val format = ReportFormat()
+            setContent {
+                format.Capture()
+                ScoreReportScreen(report = report, onAnalyzeAgain = {})
+            }
 
             listOf(shapes[2], shapes.last()).forEach { shape ->
                 report = reportWith(shape)
@@ -233,13 +306,19 @@ class ScoreReportScreenTest : ComposeUiTestRunner() {
                         .performScrollToNode(hasTestTag(ScoreReportScreenTags.question(0, questionIndex)))
                     onNodeWithTag(ScoreReportScreenTags.questionField(0, questionIndex, "raw"))
                         .assertTextEquals(
-                            "Raw score: ${formatScore(question.rawScore)} / ${formatScore(QuestionScoreResult.MAX_RAW_SCORE)}",
+                            format.field(
+                                format.rawLabel,
+                                format.fraction(question.rawScore, QuestionScoreResult.MAX_RAW_SCORE),
+                            ),
                         )
                     onNodeWithTag(ScoreReportScreenTags.questionField(0, questionIndex, "weight"))
-                        .assertTextEquals("Weight: ${formatScore(question.weight)}")
+                        .assertTextEquals(format.field(format.weightLabel, format.score(question.weight)))
                     onNodeWithTag(ScoreReportScreenTags.questionField(0, questionIndex, "weighted"))
                         .assertTextEquals(
-                            "Weighted: ${formatScore(question.weightedScore)} / ${formatScore(question.maxPoints)}",
+                            format.field(
+                                format.weightedLabel,
+                                format.fraction(question.weightedScore, question.maxPoints),
+                            ),
                         )
                 }
             }
@@ -284,9 +363,6 @@ class ScoreReportScreenTest : ComposeUiTestRunner() {
             onNodeWithTag(ScoreReportScreenTags.sectionEmpty(0)).assertExists()
         }
 
-    // Name scoped to what's actually exercised: "Analyze again" lives in a fixed item(key =
-    // "actions") independent of report.sections, so its shape-independence is a code-structure
-    // guarantee, not something this test needs to re-verify across every shape in the table.
     @Test
     fun analyzeAgain_firesExactlyOnceForEachClick_withEmptyReport() =
         runComposeUiTest {
@@ -312,7 +388,6 @@ class ScoreReportScreenTest : ComposeUiTestRunner() {
             waitForIdle()
             onNodeWithTag(ScoreReportScreenTags.sectionToggle(1)).assertIsOn()
 
-            // A genuinely new report (not just an equal one) must reset the accordion.
             report = report.copy(subjectName = "Another subject")
             waitForIdle()
 

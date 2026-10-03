@@ -130,6 +130,21 @@ CI (`.github/workflows/ci.yml`) runs these same three test suites as three indep
 - `webApp`: standard React/TypeScript conventions — function components, `.tsx` files, CSS next to the component that uses it.
 - Every JVM/Kotlin dependency must be declared via an alias in `gradle/libs.versions.toml` (`libs.*`) — no inline version strings in `build.gradle.kts`.
 
+## Localization (i18n)
+
+Supported languages: `en` (default/fallback) and `vi`. The UI follows the device system language only (no in-app switcher); any other device language falls back to `en`. Uses Compose Resources already in `sharedUI`, no extra library.
+
+- **Where strings live:** `sharedUI/src/commonMain/composeResources/values/strings.xml` (en, fallback) and `values-vi/strings.xml`. One `strings.xml` per locale directory. Read with `stringResource(Res.string.<key>)`; `Res` is `vcman.sharedui.generated.resources.Res`.
+- **No hard-coded user-facing text** in Composables (`Text("...")`, `label = "..."`). Only `@Preview` and test data may contain literals. Dynamic values use positional placeholders (`%1$s`, `%1$d`), never string concatenation.
+- **ViewModels never return display strings.** `sharedLogic` emits typed data (`AnalysisUiState.Error(AnalysisFailure)`, `RequiredFieldId`); `sharedUI/ui/AnalysisFailureText.kt` maps it to a string resource with an exhaustive `when` (no `else`), so a new failure type will not build until it has a message.
+- **LLM answer language** = `content_language_tag` resource (`en` / `vi`), exposed by `rememberContentLanguage()`, passed as `LanguageTag` through `ScoreAnalysisViewModel.analyze` -> `ScoreAnalysisService.analyze` -> `PromptBuilder.buildUserPrompt`. It follows the same fallback as the UI. Already-received reports are not re-translated when the locale changes.
+- **Score decimal separator** comes from the `decimal_separator` resource (`formatScore(value, separator)`); minimal formatting, not CLDR.
+- **Vietnamese glossary:** rubric = "rubric", score = "điểm", weight = "trọng số". Always write Vietnamese with diacritics.
+- **Add a key:** add it to `values` and to every `values-xx`. **Add a language:** create `values-xx/strings.xml` with all keys (including `decimal_separator` and `content_language_tag` = `xx`), then add `xx` to `CFBundleLocalizations` in `iosApp/iosApp/Info.plist` and to `knownRegions` in `iosApp/iosApp.xcodeproj/project.pbxproj`. No Composable/ViewModel change is needed.
+- **Completeness is enforced by a test:** `StringResourcesCompletenessTest` (`sharedUI` `androidHostTest`) scans every `values-*` for missing/unknown keys, differing placeholders, blank strings and a mismatched `content_language_tag`. Compose Resources itself silently falls back to `values`, so this test is the only guard.
+- **Android `app_name`** is a brand name, marked `translatable="false"` in `androidApp/src/main/res/values/strings.xml`. Remove the flag and add `values-vi/strings.xml` there if a localized name is wanted.
+- **Locale tests:** exact-text assertions live in `androidHostTest` (`LocalizedUiTest`, Robolectric `@Config(qualifiers = ...)`); `commonTest` must only assert locale-independent facts.
+
 ## Recommended additions (not installed)
 
 **Everything in this section is NOT installed except the Networking and CI/CD rows below (installed for issue #7 and the CI workflow, respectively). Do not assume any other library listed here is available in the code.**

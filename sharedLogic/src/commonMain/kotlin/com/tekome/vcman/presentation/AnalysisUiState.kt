@@ -16,6 +16,6 @@ sealed interface AnalysisUiState {
     ) : AnalysisUiState
 
     data class Error(
-        val message: String,
+        val failure: AnalysisFailure,
     ) : AnalysisUiState
 }

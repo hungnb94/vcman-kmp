@@ -7,6 +7,7 @@ import com.tekome.vcman.data.KoogScoreAnalysisService
 import com.tekome.vcman.data.LlmProvider
 import com.tekome.vcman.data.LlmRequestConfig
 import com.tekome.vcman.data.ScoreAnalysisService
+import com.tekome.vcman.domain.LanguageTag
 import com.tekome.vcman.domain.RubricInput
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -30,17 +31,18 @@ class ScoreAnalysisViewModel(
         rubricText: String,
         subjectQuery: String,
         apiKey: String,
+        outputLanguage: LanguageTag,
     ) {
         if (analyzeJob?.isActive == true) return
 
         val requiredFields =
             listOf(
-                RequiredField("Rubric title", rubricTitle),
-                RequiredField("Rubric text", rubricText),
-                RequiredField("Subject", subjectQuery),
-                RequiredField("API key", apiKey),
+                RequiredField(RequiredFieldId.RubricTitle, rubricTitle),
+                RequiredField(RequiredFieldId.RubricText, rubricText),
+                RequiredField(RequiredFieldId.Subject, subjectQuery),
+                RequiredField(RequiredFieldId.ApiKey, apiKey),
             )
-        blankFieldsMessage(requiredFields)?.let {
+        missingFieldsFailure(requiredFields)?.let {
             _uiState.value = AnalysisUiState.Error(it)
             return
         }
@@ -60,7 +62,7 @@ class ScoreAnalysisViewModel(
             viewModelScope.launch {
                 val result =
                     try {
-                        service.analyze(rubric, subjectQuery, config)
+                        service.analyze(rubric, subjectQuery, config, outputLanguage)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -70,7 +72,7 @@ class ScoreAnalysisViewModel(
                     _uiState.value =
                         result.fold(
                             onSuccess = { AnalysisUiState.Success(it) },
-                            onFailure = { AnalysisUiState.Error(userMessageFor(it)) },
+                            onFailure = { AnalysisUiState.Error(it.toFailure()) },
                         )
                 }
             }
