@@ -58,6 +58,7 @@ class LocalizedUiTest : ComposeUiTestRunner() {
             AppContent(
                 uiState = AnalysisUiState.Error(AnalysisFailure.Api(401)),
                 onAnalyze = { _, _, _, _ -> },
+                onAnalyzeAgain = {},
             )
         }
         waitForIdle()
