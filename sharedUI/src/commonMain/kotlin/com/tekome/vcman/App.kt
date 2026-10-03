@@ -5,7 +5,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -40,10 +41,7 @@ internal fun AppContent(
     onAnalyzeAgain: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Hoisted here (not inside SetupScreen) so it survives the `Success` branch below (AC #11):
-    // AppContent stays in composition across every `when` branch, SetupScreen does not.
-    // `remember` only, never `rememberSaveable` - apiKey must not enter the saved-instance state.
-    var setupInput by remember { mutableStateOf(SetupInput()) }
+    var setupInput by rememberSaveable(stateSaver = setupInputSaver) { mutableStateOf(SetupInput()) }
 
     when (uiState) {
         AnalysisUiState.Idle,
@@ -69,6 +67,12 @@ internal fun AppContent(
         }
     }
 }
+
+private val setupInputSaver =
+    listSaver(
+        save = { listOf(it.rubricTitle, it.rubricText, it.subject) },
+        restore = { SetupInput(rubricTitle = it[0], rubricText = it[1], subject = it[2]) },
+    )
 
 internal val AnalysisUiState.isLoading: Boolean
     get() = this is AnalysisUiState.Loading
