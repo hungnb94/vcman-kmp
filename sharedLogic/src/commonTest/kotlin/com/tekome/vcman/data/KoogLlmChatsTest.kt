@@ -3,20 +3,124 @@ package com.tekome.vcman.data
 import ai.koog.agents.core.agent.exception.AIAgentMaxNumberOfIterationsReachedException
 import ai.koog.http.client.KoogHttpClientException
 import ai.koog.http.client.ktor.KtorKoogHttpClient
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.TextContent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFails
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 class KoogLlmChatsTest {
-    @Test
-    fun koogChatFactoryFor_returnsFactoryForEveryProvider() {
-        val anthropicChat = koogChatFactoryFor(LlmProvider.Anthropic).create(ApiKey("key"))
-        val openAiChat = koogChatFactoryFor(LlmProvider.OpenAI).create(ApiKey("key"))
+    private class CapturedRequest(
+        val url: String,
+        val headers: Map<String, String>,
+        val body: String,
+    )
 
-        assertIs<KoogLlmChat>(anthropicChat)
-        assertIs<KoogLlmChat>(openAiChat)
+    private suspend fun requestSentBy(
+        type: LlmProviderType,
+        baseUrl: String,
+        model: String = "my-custom-model",
+        key: String = "k",
+    ): Pair<CapturedRequest, Throwable> {
+        var captured: CapturedRequest? = null
+        val engine =
+            MockEngine { request ->
+                if (captured == null) {
+                    captured =
+                        CapturedRequest(
+                            url = request.url.toString(),
+                            headers = request.headers.entries().associate { (name, values) -> name.lowercase() to values.joinToString() },
+                            body = (request.body as TextContent).text,
+                        )
+                }
+                respond("denied", HttpStatusCode.Unauthorized)
+            }
+        val chat = type.createChat(LlmSettings(type, ApiKey(key), baseUrl, model), KtorKoogHttpClient.Factory(HttpClient(engine)))
+
+        val failure = assertFails { chat.complete("system", "user", emptyList()) }
+        return checkNotNull(captured) to failure
+    }
+
+    @Test
+    fun createChat_buildsKoogChatForEveryProviderType() {
+        LlmProviderType.entries.forEach { type ->
+            assertIs<KoogLlmChat>(type.createChat(validSettings(type), KtorKoogHttpClient.Factory()), type.id)
+        }
+    }
+
+    @Test
+    fun createChat_sendsRequestToExpectedUrlWithAuthAndCustomModel() =
+        runTest {
+            val cases =
+                listOf(
+                    listOf(LlmProviderType.OpenAICompatible, "https://api.openai.com/v1", "https://api.openai.com/v1/chat/completions"),
+                    listOf(LlmProviderType.OpenAICompatible, "https://api.openai.com", "https://api.openai.com/v1/chat/completions"),
+                    listOf(LlmProviderType.OpenAICompatible, " https://api.openai.com/v1/ ", "https://api.openai.com/v1/chat/completions"),
+                    listOf(
+                        LlmProviderType.OpenAICompatible,
+                        "https://proxy.example.com/openai/v1",
+                        "https://proxy.example.com/openai/v1/chat/completions",
+                    ),
+                    listOf(LlmProviderType.OpenAICompatible, "http://localhost:11434", "http://localhost:11434/v1/chat/completions"),
+                    listOf(LlmProviderType.OpenAICompatible, "http://localhost:11434/v1", "http://localhost:11434/v1/chat/completions"),
+                    listOf(LlmProviderType.AnthropicCompatible, "https://api.anthropic.com", "https://api.anthropic.com/v1/messages"),
+                    listOf(
+                        LlmProviderType.AnthropicCompatible,
+                        "https://gw.example.com/anthropic",
+                        "https://gw.example.com/anthropic/v1/messages",
+                    ),
+                    listOf(
+                        LlmProviderType.AnthropicCompatible,
+                        "https://gw.example.com/anthropic/v1",
+                        "https://gw.example.com/anthropic/v1/messages",
+                    ),
+                )
+            val authHeaders =
+                mapOf(
+                    LlmProviderType.OpenAICompatible to ("authorization" to "Bearer k"),
+                    LlmProviderType.AnthropicCompatible to ("x-api-key" to "k"),
+                )
+
+            cases.forEach { (type, baseUrl, expectedUrl) ->
+                type as LlmProviderType
+                val (request, failure) = requestSentBy(type, baseUrl as String)
+
+                assertEquals(expectedUrl, request.url, "$type $baseUrl")
+                authHeaders[type]?.let { (authName, authValue) ->
+                    assertEquals(authValue, request.headers[authName], "$type auth header")
+                }
+                assertTrue("\"model\":\"my-custom-model\"" in request.body, "$type model in body: ${request.body}")
+                assertEquals(AnalysisError.ApiError(401), classify(failure, koogErrorRules), "$type failure")
+            }
+        }
+
+    @Test
+    fun chatPaths_followWhetherBaseUrlAlreadyCarriesAPath() {
+        mapOf(
+            "https://api.openai.com" to "v1/chat/completions",
+            "http://localhost:11434" to "v1/chat/completions",
+            "https://api.openai.com/v1" to "chat/completions",
+            "https://openrouter.ai/api/v1" to "chat/completions",
+            "https://host/api/paas/v4" to "chat/completions",
+        ).forEach { (url, expected) -> assertEquals(expected, openAiChatPath(url), url) }
+        mapOf(
+            "https://api.anthropic.com" to "v1/messages",
+            "https://gw.example.com/anthropic" to "v1/messages",
+            "https://gw.example.com/anthropic/v1" to "messages",
+            "https://gw.example.com/v10" to "v1/messages",
+        ).forEach { (url, expected) -> assertEquals(expected, anthropicMessagesPath(url), url) }
+    }
+
+    @Test
+    fun defaultLlmChatResolver_resolvesEveryProviderType() {
+        LlmProviderType.entries.forEach { assertIs<KoogLlmChat>(defaultLlmChatResolver(validSettings(it)), it.id) }
     }
 
     @Test
@@ -128,28 +232,5 @@ class KoogLlmChatsTest {
         val error = classify(exception, koogErrorRules)
 
         assertEquals(AnalysisError.Network, error)
-    }
-
-    @Test
-    fun openAiChatPath_addsVersionOnlyWhenBaseUrlHasNoPath() {
-        assertEquals("v1/chat/completions", openAiChatPath("https://api.openai.com"))
-        assertEquals("chat/completions", openAiChatPath("https://api.openai.com/v1"))
-        assertEquals("chat/completions", openAiChatPath("https://openrouter.ai/api/v1"))
-    }
-
-    @Test
-    fun anthropicMessagesPath_addsVersionOnlyWhenBaseUrlDoesNotEndInV1() {
-        assertEquals("v1/messages", anthropicMessagesPath("https://api.anthropic.com"))
-        assertEquals("messages", anthropicMessagesPath("https://api.anthropic.com/v1"))
-        assertEquals("v1/messages", anthropicMessagesPath("https://proxy.example.com/anthropic"))
-    }
-
-    @Test
-    fun providerTypes_buildKoogChatFromSettings() {
-        LlmProviderType.entries.forEach { type ->
-            val chat = type.createChat(validSettings(type), KtorKoogHttpClient.Factory())
-
-            assertIs<KoogLlmChat>(chat, type.id)
-        }
     }
 }

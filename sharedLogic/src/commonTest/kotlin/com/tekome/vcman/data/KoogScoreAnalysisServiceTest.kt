@@ -50,15 +50,15 @@ class KoogScoreAnalysisServiceTest {
     )
 
     private fun requestConfig(
-        provider: LlmProvider = LlmProvider.Anthropic,
+        providerType: LlmProviderType = LlmProviderType.AnthropicCompatible,
         searchTool: WebSearchToolConfig? = null,
-    ) = LlmRequestConfig(provider = provider, apiKey = ApiKey("key"), searchTool = searchTool)
+    ) = LlmRequestConfig(settings = validSettings(providerType, key = "key"), searchTool = searchTool)
 
     @Test
     fun analyze_validEnvelopeReturnsMappedReport() =
         runTest {
             val chat = LlmChat { _, _, _ -> validEnvelope }
-            val service = serviceWith({ LlmChatFactory { chat } }, nowMillis = { 999L })
+            val service = serviceWith({ chat }, nowMillis = { 999L })
 
             val result = service.analyze(rubric, "Acme Inc", requestConfig(), LanguageTag.Default)
 
@@ -80,7 +80,7 @@ class KoogScoreAnalysisServiceTest {
         runTest {
             val raw = """{"subjectName":"X","overallSummary":"Ambiguous: Foo Inc vs Foo Corp","sections":[]}"""
             val chat = LlmChat { _, _, _ -> raw }
-            val service = serviceWith({ LlmChatFactory { chat } })
+            val service = serviceWith({ chat })
 
             val result = service.analyze(rubric, "Foo", requestConfig(), LanguageTag.Default)
 
@@ -93,7 +93,7 @@ class KoogScoreAnalysisServiceTest {
     fun analyze_chatThrowsIOExceptionReturnsNetwork() =
         runTest {
             val chat = LlmChat { _, _, _ -> throw IOException("connection refused") }
-            val service = serviceWith({ LlmChatFactory { chat } })
+            val service = serviceWith({ chat })
 
             val result = service.analyze(rubric, "Acme", requestConfig(), LanguageTag.Default)
 
@@ -113,7 +113,7 @@ class KoogScoreAnalysisServiceTest {
                     unauthorizedClient.get("https://example.invalid/v1/messages")
                     error("unreachable")
                 }
-            val service = serviceWith({ LlmChatFactory { chat } })
+            val service = serviceWith({ chat })
 
             val result = service.analyze(rubric, "Acme", requestConfig(), LanguageTag.Default)
 
@@ -125,7 +125,7 @@ class KoogScoreAnalysisServiceTest {
     fun analyze_garbageResponseReturnsInvalidResponse() =
         runTest {
             val chat = LlmChat { _, _, _ -> "not json at all" }
-            val service = serviceWith({ LlmChatFactory { chat } })
+            val service = serviceWith({ chat })
 
             val result = service.analyze(rubric, "Acme", requestConfig(), LanguageTag.Default)
 
@@ -136,7 +136,7 @@ class KoogScoreAnalysisServiceTest {
     fun analyze_cancellationIsRethrownNotWrapped() =
         runTest {
             val chat = LlmChat { _, _, _ -> throw CancellationException("cancelled") }
-            val service = serviceWith({ LlmChatFactory { chat } })
+            val service = serviceWith({ chat })
 
             assertFailsWith<CancellationException> {
                 service.analyze(rubric, "Acme", requestConfig(), LanguageTag.Default)
@@ -144,20 +144,19 @@ class KoogScoreAnalysisServiceTest {
         }
 
     @Test
-    fun analyze_switchingProviderOnlyChangesResolvedFactory() =
+    fun analyze_resolverReceivesSavedSettingsForEveryProvider() =
         runTest {
-            val requestedProviders = mutableListOf<LlmProvider>()
+            val received = mutableListOf<LlmSettings>()
             val chat = LlmChat { _, _, _ -> validEnvelope }
-            val resolver: LlmChatResolver = { provider ->
-                requestedProviders += provider
-                LlmChatFactory { chat }
+            val resolver: LlmChatResolver = { settings ->
+                received += settings
+                chat
             }
             val service = serviceWith(resolver)
 
-            service.analyze(rubric, "Acme", requestConfig(LlmProvider.Anthropic), LanguageTag.Default)
-            service.analyze(rubric, "Acme", requestConfig(LlmProvider.OpenAI), LanguageTag.Default)
+            LlmProviderType.entries.forEach { service.analyze(rubric, "Acme", requestConfig(it), LanguageTag.Default) }
 
-            assertEquals(listOf(LlmProvider.Anthropic, LlmProvider.OpenAI), requestedProviders)
+            assertEquals(LlmProviderType.entries.map { validSettings(it, key = "key") }, received)
         }
 
     @Test
@@ -169,7 +168,7 @@ class KoogScoreAnalysisServiceTest {
                     capturedTools = tools
                     validEnvelope
                 }
-            val service = serviceWith({ LlmChatFactory { chat } })
+            val service = serviceWith({ chat })
 
             service.analyze(rubric, "Acme", requestConfig(searchTool = null), LanguageTag.Default)
 
@@ -185,7 +184,7 @@ class KoogScoreAnalysisServiceTest {
                     capturedTools = tools
                     validEnvelope
                 }
-            val service = serviceWith({ LlmChatFactory { chat } })
+            val service = serviceWith({ chat })
 
             service.analyze(
                 rubric,
@@ -209,7 +208,7 @@ class KoogScoreAnalysisServiceTest {
                     capturedUser = user
                     validEnvelope
                 }
-            val service = serviceWith({ LlmChatFactory { chat } })
+            val service = serviceWith({ chat })
 
             service.analyze(rubric, "Acme Query", requestConfig(), LanguageTag.parse("vi"))
 

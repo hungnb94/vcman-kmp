@@ -2,7 +2,7 @@ package com.tekome.vcman.presentation
 
 import com.tekome.vcman.data.AnalysisError
 import com.tekome.vcman.data.AnalysisException
-import com.tekome.vcman.data.LlmProvider
+import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.LlmRequestConfig
 import com.tekome.vcman.data.ScoreAnalysisService
 import com.tekome.vcman.domain.LanguageTag
@@ -149,9 +149,9 @@ class ScoreAnalysisViewModelTest {
             assertEquals("Acme", service.lastSubjectQuery)
             assertEquals(VI, service.lastOutputLanguage)
             val config = service.lastConfig
-            assertEquals(LlmProvider.Anthropic, config?.provider)
+            assertEquals(LlmProviderType.AnthropicCompatible, config?.settings?.providerType)
             assertNull(config?.searchTool)
-            assertEquals("sk-valid-key", config?.apiKey?.value)
+            assertEquals("sk-valid-key", config?.settings?.apiKey?.value)
         }
 
     @Test

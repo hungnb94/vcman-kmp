@@ -4,8 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tekome.vcman.data.ApiKey
 import com.tekome.vcman.data.KoogScoreAnalysisService
-import com.tekome.vcman.data.LlmProvider
+import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.LlmRequestConfig
+import com.tekome.vcman.data.LlmSettings
 import com.tekome.vcman.data.ScoreAnalysisService
 import com.tekome.vcman.domain.LanguageTag
 import com.tekome.vcman.domain.RubricInput
@@ -50,10 +51,10 @@ class ScoreAnalysisViewModel(
         _uiState.value = AnalysisUiState.Loading
 
         val rubric = RubricInput(title = rubricTitle, text = rubricText)
+        val providerType = LlmProviderType.AnthropicCompatible
         val config =
             LlmRequestConfig(
-                provider = LlmProvider.Anthropic,
-                apiKey = ApiKey(apiKey.trim()),
+                settings = LlmSettings(providerType, ApiKey(apiKey.trim()), providerType.defaultBaseUrl, providerType.defaultModel),
                 searchTool = null,
             )
 

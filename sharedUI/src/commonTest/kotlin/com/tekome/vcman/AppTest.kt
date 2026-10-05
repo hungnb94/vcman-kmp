@@ -230,7 +230,7 @@ class AppWiringTest : ComposeUiTestRunner() {
             config: LlmRequestConfig,
             outputLanguage: LanguageTag,
         ): Result<ProjectScoreReport> {
-            calls += listOf(rubric.title, rubric.text, subjectQuery, config.apiKey.value)
+            calls += listOf(rubric.title, rubric.text, subjectQuery, config.settings.apiKey.value)
             return results[callIndex++].await()
         }
     }

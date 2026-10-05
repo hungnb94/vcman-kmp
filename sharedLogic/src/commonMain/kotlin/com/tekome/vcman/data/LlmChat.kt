@@ -8,8 +8,4 @@ internal fun interface LlmChat {
     ): String
 }
 
-internal fun interface LlmChatFactory {
-    fun create(apiKey: ApiKey): LlmChat
-}
-
-internal typealias LlmChatResolver = (LlmProvider) -> LlmChatFactory
+internal typealias LlmChatResolver = (LlmSettings) -> LlmChat

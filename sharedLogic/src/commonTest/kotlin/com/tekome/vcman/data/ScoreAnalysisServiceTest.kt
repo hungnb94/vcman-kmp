@@ -1,7 +1,6 @@
 package com.tekome.vcman.data
 
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
 class ScoreAnalysisServiceTest {
@@ -16,20 +15,13 @@ class ScoreAnalysisServiceTest {
     fun llmRequestConfig_toStringNeverContainsApiKey() {
         val config =
             LlmRequestConfig(
-                provider = LlmProvider.OpenAI,
-                apiKey = ApiKey("sk-super-secret-123"),
+                settings = validSettings(LlmProviderType.OpenAICompatible, key = "sk-super-secret-123"),
                 searchTool = WebSearchToolConfig.Firecrawl(ApiKey("firecrawl-secret-456")),
             )
 
-        val rendered = "$config ${config.apiKey} ${config.searchTool}"
+        val rendered = "$config ${config.settings} ${config.searchTool}"
 
         assertFalse("sk-super-secret-123" in rendered)
         assertFalse("firecrawl-secret-456" in rendered)
-    }
-
-    @Test
-    fun llmProvider_displayNameIsDefinedForEveryShippedProvider() {
-        assertEquals("Anthropic", LlmProvider.Anthropic.displayName)
-        assertEquals("OpenAI", LlmProvider.OpenAI.displayName)
     }
 }
