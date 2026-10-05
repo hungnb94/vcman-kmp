@@ -33,6 +33,7 @@ Reference for AI agents and developers working in this repo. Read `## Boundaries
 | Compose UI test (`org.jetbrains.compose.ui:ui-test`, `sharedUI` `commonTest` only) | 1.12.1 |
 | Robolectric (`sharedUI` `androidHostTest` only, backs `runComposeUiTest` on the JVM) | 4.15.1 |
 | multiplatform-settings (`com.russhwolf:multiplatform-settings`, `sharedLogic`; `multiplatform-settings-test` for `MapSettings` in `commonTest` only) | 1.3.0 |
+| Navigation Compose Multiplatform (`org.jetbrains.androidx.navigation:navigation-compose`, `sharedUI` `commonMain`, pre-release) | 2.10.0-beta01 |
 
 `gradle/libs.versions.toml` is the single source of truth for JVM/Kotlin dependency versions; if this table disagrees with it, **the catalog wins**. `webApp/package.json` is the source of truth for web dependency versions. `^x.y.z` values are npm semver ranges copied from `webApp/package.json` (minimum version, not an exact pin) — all other rows are exact pinned versions from `gradle/libs.versions.toml`.
 

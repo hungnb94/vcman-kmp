@@ -5,6 +5,7 @@
     <string name="setup_load_sample">Tải rubric mẫu</string>
     <string name="setup_subject_label">Dự án / công ty / coin</string>
     <string name="setup_api_key_label">Khóa API</string>
+    <string name="setup_open_settings">Cài đặt</string>
     <string name="setup_analyze">Phân tích</string>
     <string name="report_analyze_again">Phân tích lại</string>
     <string name="report_no_questions">Không có câu hỏi</string>

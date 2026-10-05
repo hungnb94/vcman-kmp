@@ -29,6 +29,7 @@ private fun StatefulSetupScreen(
     error: String?,
     onAnalyze: (rubricTitle: String, rubricText: String, subject: String, apiKey: String) -> Unit,
     sampleRubric: SampleRubric,
+    onOpenSettings: () -> Unit = {},
     initialInput: SetupInput = SetupInput(),
     onInputChange: (SetupInput) -> Unit = {},
 ) {
@@ -42,6 +43,7 @@ private fun StatefulSetupScreen(
         loading = loading,
         error = error,
         onAnalyze = onAnalyze,
+        onOpenSettings = onOpenSettings,
         sampleRubric = sampleRubric,
     )
 }
@@ -130,6 +132,40 @@ class SetupScreenTest : ComposeUiTestRunner() {
 
             onNodeWithTag(SetupScreenTags.API_KEY)
                 .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Password))
+        }
+
+    @Test
+    fun openSettings_invokesCallbackOnce() =
+        runComposeUiTest {
+            var opened = 0
+            setContent {
+                StatefulSetupScreen(
+                    loading = false,
+                    error = null,
+                    onAnalyze = { _, _, _, _ -> },
+                    sampleRubric = fakeSample,
+                    onOpenSettings = { opened++ },
+                )
+            }
+
+            onNodeWithTag(SetupScreenTags.OPEN_SETTINGS).performClick()
+
+            assertEquals(1, opened)
+        }
+
+    @Test
+    fun openSettings_isAvailableWhileLoading() =
+        runComposeUiTest {
+            setContent {
+                StatefulSetupScreen(
+                    loading = true,
+                    error = null,
+                    onAnalyze = { _, _, _, _ -> },
+                    sampleRubric = fakeSample,
+                )
+            }
+
+            onNodeWithTag(SetupScreenTags.OPEN_SETTINGS).assertIsEnabled()
         }
 
     @Test
@@ -228,6 +264,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
                     loading = false,
                     error = null,
                     onAnalyze = { _, _, _, _ -> },
+                    onOpenSettings = {},
                     sampleRubric = fakeSample,
                 )
             }
@@ -252,6 +289,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
                     loading = false,
                     error = null,
                     onAnalyze = { _, _, _, _ -> },
+                    onOpenSettings = {},
                     sampleRubric = fakeSample,
                 )
             }
@@ -273,6 +311,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
                     loading = false,
                     error = null,
                     onAnalyze = { _, _, _, _ -> },
+                    onOpenSettings = {},
                     sampleRubric = fakeSample,
                 )
             }
