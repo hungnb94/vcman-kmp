@@ -26,6 +26,7 @@ import com.tekome.vcman.presentation.AnalysisUiState
 import com.tekome.vcman.presentation.ScoreAnalysisViewModel
 import com.tekome.vcman.ui.ComposeUiTestRunner
 import com.tekome.vcman.ui.ScoreReportScreenTags
+import com.tekome.vcman.ui.SettingsScreenTags
 import com.tekome.vcman.ui.SetupScreenTags
 import kotlinx.coroutines.CompletableDeferred
 import kotlin.test.Test
@@ -74,6 +75,7 @@ class AppContentTest : ComposeUiTestRunner() {
                     uiState = AnalysisUiState.Idle,
                     onAnalyze = { title, text, subject, apiKey -> calls += listOf(title, text, subject, apiKey) },
                     onAnalyzeAgain = {},
+                    settingsRepository = InMemorySettingsRepository(),
                 )
             }
 
@@ -93,7 +95,12 @@ class AppContentTest : ComposeUiTestRunner() {
     fun loading_disablesAnalyze_andShowsIndicator() =
         runComposeUiTest {
             setContent {
-                AppContent(uiState = AnalysisUiState.Loading, onAnalyze = { _, _, _, _ -> }, onAnalyzeAgain = {})
+                AppContent(
+                    uiState = AnalysisUiState.Loading,
+                    onAnalyze = { _, _, _, _ -> },
+                    onAnalyzeAgain = {},
+                    settingsRepository = InMemorySettingsRepository(),
+                )
             }
 
             onNodeWithTag(SetupScreenTags.LOADING).assertExists()
@@ -108,6 +115,7 @@ class AppContentTest : ComposeUiTestRunner() {
                     uiState = AnalysisUiState.Error(AnalysisFailure.AmbiguousSubject("Rate limited")),
                     onAnalyze = { _, _, _, _ -> },
                     onAnalyzeAgain = {},
+                    settingsRepository = InMemorySettingsRepository(),
                 )
             }
 
@@ -124,6 +132,7 @@ class AppContentTest : ComposeUiTestRunner() {
                     uiState = AnalysisUiState.Success(fixtureReport),
                     onAnalyze = { _, _, _, _ -> },
                     onAnalyzeAgain = {},
+                    settingsRepository = InMemorySettingsRepository(),
                 )
             }
 
@@ -140,6 +149,7 @@ class AppContentTest : ComposeUiTestRunner() {
                     uiState = AnalysisUiState.Success(fixtureReport),
                     onAnalyze = { _, _, _, _ -> },
                     onAnalyzeAgain = { calls++ },
+                    settingsRepository = InMemorySettingsRepository(),
                 )
             }
 
@@ -160,6 +170,7 @@ class AppContentTest : ComposeUiTestRunner() {
                         analyzeCalls += listOf(title, text, subject, apiKey)
                     },
                     onAnalyzeAgain = { state = AnalysisUiState.Idle },
+                    settingsRepository = InMemorySettingsRepository(),
                 )
             }
 
@@ -235,11 +246,17 @@ class AppWiringTest : ComposeUiTestRunner() {
         }
     }
 
+    private fun androidx.compose.ui.test.ComposeUiTest.fillRubric() {
+        onNodeWithTag(SetupScreenTags.RUBRIC_TITLE).performTextInput("T")
+        onNodeWithTag(SetupScreenTags.RUBRIC_TEXT).performTextInput("Body")
+        onNodeWithTag(SetupScreenTags.SUBJECT).performTextInput("Bitcoin")
+    }
+
     @Test
     fun blankFields_showsValidationError_withoutCallingService() =
         runComposeUiTest {
             setContent {
-                App(viewModel = ScoreAnalysisViewModel(service = NeverCalledService()))
+                App(InMemorySettingsRepository(), viewModel = ScoreAnalysisViewModel(service = NeverCalledService()))
             }
 
             onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
@@ -253,7 +270,7 @@ class AppWiringTest : ComposeUiTestRunner() {
         runComposeUiTest {
             val deferred = CompletableDeferred<Result<ProjectScoreReport>>()
             setContent {
-                App(viewModel = ScoreAnalysisViewModel(service = DeferredService(deferred)))
+                App(InMemorySettingsRepository(), viewModel = ScoreAnalysisViewModel(service = DeferredService(deferred)))
             }
 
             onNodeWithTag(SetupScreenTags.RUBRIC_TITLE).performTextInput("T")
@@ -280,7 +297,7 @@ class AppWiringTest : ComposeUiTestRunner() {
             val secondResult = CompletableDeferred<Result<ProjectScoreReport>>()
             val service = RecordingService(listOf(firstResult, secondResult))
             setContent {
-                App(viewModel = ScoreAnalysisViewModel(service = service))
+                App(InMemorySettingsRepository(), viewModel = ScoreAnalysisViewModel(service = service))
             }
 
             onNodeWithTag(SetupScreenTags.RUBRIC_TITLE).performTextInput("T")
@@ -314,5 +331,28 @@ class AppWiringTest : ComposeUiTestRunner() {
             assertEquals(2, service.calls.size)
             assertEquals(service.calls[0], service.calls[1])
             assertEquals(listOf("T", "Body", "Bitcoin", "sk-123"), service.calls[0])
+        }
+
+    @Test
+    fun settings_openAndBack_keepsRubricAndSubject() =
+        runComposeUiTest {
+            val repository = InMemorySettingsRepository()
+            setContent {
+                App(repository, viewModel = ScoreAnalysisViewModel(service = NeverCalledService()))
+            }
+            fillRubric()
+
+            onNodeWithTag(SetupScreenTags.OPEN_SETTINGS).performClick()
+            waitForIdle()
+            onNodeWithTag(SettingsScreenTags.TITLE).assertExists()
+            onNodeWithTag(SetupScreenTags.SUBJECT).assertDoesNotExist()
+
+            onNodeWithTag(SettingsScreenTags.BACK).performClick()
+            waitForIdle()
+
+            onNodeWithTag(SetupScreenTags.RUBRIC_TITLE)
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("T")))
+            onNodeWithTag(SetupScreenTags.SUBJECT)
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("Bitcoin")))
         }
 }

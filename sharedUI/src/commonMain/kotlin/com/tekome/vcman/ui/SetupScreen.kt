@@ -17,7 +17,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -35,6 +37,7 @@ import vcman.sharedui.generated.resources.Res
 import vcman.sharedui.generated.resources.setup_analyze
 import vcman.sharedui.generated.resources.setup_api_key_label
 import vcman.sharedui.generated.resources.setup_load_sample
+import vcman.sharedui.generated.resources.setup_open_settings
 import vcman.sharedui.generated.resources.setup_rubric_text_label
 import vcman.sharedui.generated.resources.setup_rubric_title_label
 import vcman.sharedui.generated.resources.setup_subject_label
@@ -54,6 +57,7 @@ internal object SetupScreenTags {
     const val LOAD_SAMPLE = "setup_load_sample"
     const val SUBJECT = "setup_subject"
     const val API_KEY = "setup_api_key"
+    const val OPEN_SETTINGS = "setup_open_settings"
     const val ANALYZE = "setup_analyze"
     const val LOADING = "setup_loading"
     const val ERROR = "setup_error"
@@ -67,6 +71,7 @@ fun SetupScreen(
     loading: Boolean,
     error: String?,
     onAnalyze: (rubricTitle: String, rubricText: String, subject: String, apiKey: String) -> Unit,
+    onOpenSettings: () -> Unit,
     sampleRubric: SampleRubric = SampleRubrics.cryptoBenchScore,
 ) {
     Column(
@@ -77,6 +82,12 @@ fun SetupScreen(
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        TextButton(
+            onClick = onOpenSettings,
+            modifier = Modifier.align(Alignment.End).testTag(SetupScreenTags.OPEN_SETTINGS),
+        ) {
+            Text(stringResource(Res.string.setup_open_settings))
+        }
         OutlinedTextField(
             value = input.rubricTitle,
             onValueChange = { onInputChange(input.copy(rubricTitle = it)) },
@@ -176,6 +187,7 @@ private fun SetupScreenPreview() {
             loading = false,
             error = "Vi du thong bao loi",
             onAnalyze = { _, _, _, _ -> },
+            onOpenSettings = {},
             sampleRubric = SampleRubric(title = "Demo", text = "Tieu chi 1\nTieu chi 2"),
         )
     }
