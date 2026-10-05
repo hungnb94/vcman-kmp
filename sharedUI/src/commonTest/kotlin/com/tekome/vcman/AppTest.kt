@@ -73,7 +73,7 @@ class AppContentTest : ComposeUiTestRunner() {
             setContent {
                 AppContent(
                     uiState = AnalysisUiState.Idle,
-                    onAnalyze = { title, text, subject, apiKey -> calls += listOf(title, text, subject, apiKey) },
+                    onAnalyze = { title, text, subject -> calls += listOf(title, text, subject) },
                     onAnalyzeAgain = {},
                     settingsRepository = InMemorySettingsRepository(),
                 )
@@ -81,12 +81,11 @@ class AppContentTest : ComposeUiTestRunner() {
 
             onNodeWithTag(SetupScreenTags.RUBRIC_TITLE).performTextInput("T")
             onNodeWithTag(SetupScreenTags.SUBJECT).performTextInput("Bitcoin")
-            onNodeWithTag(SetupScreenTags.API_KEY).performTextInput("sk-123")
             onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
             waitForIdle()
 
             assertEquals(1, calls.size)
-            assertEquals(listOf("T", "", "Bitcoin", "sk-123"), calls.single())
+            assertEquals(listOf("T", "", "Bitcoin"), calls.single())
             onNodeWithTag(SetupScreenTags.LOADING).assertDoesNotExist()
             onNodeWithTag(SetupScreenTags.ERROR).assertDoesNotExist()
         }
@@ -97,7 +96,7 @@ class AppContentTest : ComposeUiTestRunner() {
             setContent {
                 AppContent(
                     uiState = AnalysisUiState.Loading,
-                    onAnalyze = { _, _, _, _ -> },
+                    onAnalyze = { _, _, _ -> },
                     onAnalyzeAgain = {},
                     settingsRepository = InMemorySettingsRepository(),
                 )
@@ -113,7 +112,7 @@ class AppContentTest : ComposeUiTestRunner() {
             setContent {
                 AppContent(
                     uiState = AnalysisUiState.Error(AnalysisFailure.AmbiguousSubject("Rate limited")),
-                    onAnalyze = { _, _, _, _ -> },
+                    onAnalyze = { _, _, _ -> },
                     onAnalyzeAgain = {},
                     settingsRepository = InMemorySettingsRepository(),
                 )
@@ -130,7 +129,7 @@ class AppContentTest : ComposeUiTestRunner() {
             setContent {
                 AppContent(
                     uiState = AnalysisUiState.Success(fixtureReport),
-                    onAnalyze = { _, _, _, _ -> },
+                    onAnalyze = { _, _, _ -> },
                     onAnalyzeAgain = {},
                     settingsRepository = InMemorySettingsRepository(),
                 )
@@ -147,7 +146,7 @@ class AppContentTest : ComposeUiTestRunner() {
             setContent {
                 AppContent(
                     uiState = AnalysisUiState.Success(fixtureReport),
-                    onAnalyze = { _, _, _, _ -> },
+                    onAnalyze = { _, _, _ -> },
                     onAnalyzeAgain = { calls++ },
                     settingsRepository = InMemorySettingsRepository(),
                 )
@@ -159,15 +158,15 @@ class AppContentTest : ComposeUiTestRunner() {
         }
 
     @Test
-    fun roundTrip_preservesAllFourInputs() =
+    fun roundTrip_preservesAllInputs() =
         runComposeUiTest {
             var state by mutableStateOf<AnalysisUiState>(AnalysisUiState.Idle)
             val analyzeCalls = mutableListOf<List<String>>()
             setContent {
                 AppContent(
                     uiState = state,
-                    onAnalyze = { title, text, subject, apiKey ->
-                        analyzeCalls += listOf(title, text, subject, apiKey)
+                    onAnalyze = { title, text, subject ->
+                        analyzeCalls += listOf(title, text, subject)
                     },
                     onAnalyzeAgain = { state = AnalysisUiState.Idle },
                     settingsRepository = InMemorySettingsRepository(),
@@ -177,7 +176,6 @@ class AppContentTest : ComposeUiTestRunner() {
             onNodeWithTag(SetupScreenTags.RUBRIC_TITLE).performTextInput("T")
             onNodeWithTag(SetupScreenTags.RUBRIC_TEXT).performTextInput("Body")
             onNodeWithTag(SetupScreenTags.SUBJECT).performTextInput("Bitcoin")
-            onNodeWithTag(SetupScreenTags.API_KEY).performTextInput("sk-123")
 
             state = AnalysisUiState.Loading
             waitForIdle()
@@ -200,7 +198,7 @@ class AppContentTest : ComposeUiTestRunner() {
             onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
             waitForIdle()
 
-            assertEquals(listOf("T", "Body", "Bitcoin", "sk-123"), analyzeCalls.single())
+            assertEquals(listOf("T", "Body", "Bitcoin"), analyzeCalls.single())
         }
 }
 
@@ -241,7 +239,7 @@ class AppWiringTest : ComposeUiTestRunner() {
             config: LlmRequestConfig,
             outputLanguage: LanguageTag,
         ): Result<ProjectScoreReport> {
-            calls += listOf(rubric.title, rubric.text, subjectQuery, config.settings.apiKey.value)
+            calls += listOf(rubric.title, rubric.text, subjectQuery)
             return results[callIndex++].await()
         }
     }
@@ -255,8 +253,9 @@ class AppWiringTest : ComposeUiTestRunner() {
     @Test
     fun blankFields_showsValidationError_withoutCallingService() =
         runComposeUiTest {
+            val repository = InMemorySettingsRepository(configuredSettings())
             setContent {
-                App(InMemorySettingsRepository(), viewModel = ScoreAnalysisViewModel(service = NeverCalledService()))
+                App(repository, viewModel = ScoreAnalysisViewModel(repository, NeverCalledService()))
             }
 
             onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
@@ -269,14 +268,12 @@ class AppWiringTest : ComposeUiTestRunner() {
     fun validFields_showLoading_thenError_onServiceFailure() =
         runComposeUiTest {
             val deferred = CompletableDeferred<Result<ProjectScoreReport>>()
+            val repository = InMemorySettingsRepository(configuredSettings())
             setContent {
-                App(InMemorySettingsRepository(), viewModel = ScoreAnalysisViewModel(service = DeferredService(deferred)))
+                App(repository, viewModel = ScoreAnalysisViewModel(repository, DeferredService(deferred)))
             }
 
-            onNodeWithTag(SetupScreenTags.RUBRIC_TITLE).performTextInput("T")
-            onNodeWithTag(SetupScreenTags.RUBRIC_TEXT).performTextInput("Body")
-            onNodeWithTag(SetupScreenTags.SUBJECT).performTextInput("Bitcoin")
-            onNodeWithTag(SetupScreenTags.API_KEY).performTextInput("sk-123")
+            fillRubric()
             onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
             waitForIdle()
 
@@ -296,14 +293,12 @@ class AppWiringTest : ComposeUiTestRunner() {
             val firstResult = CompletableDeferred<Result<ProjectScoreReport>>()
             val secondResult = CompletableDeferred<Result<ProjectScoreReport>>()
             val service = RecordingService(listOf(firstResult, secondResult))
+            val repository = InMemorySettingsRepository(configuredSettings())
             setContent {
-                App(InMemorySettingsRepository(), viewModel = ScoreAnalysisViewModel(service = service))
+                App(repository, viewModel = ScoreAnalysisViewModel(repository, service))
             }
 
-            onNodeWithTag(SetupScreenTags.RUBRIC_TITLE).performTextInput("T")
-            onNodeWithTag(SetupScreenTags.RUBRIC_TEXT).performTextInput("Body")
-            onNodeWithTag(SetupScreenTags.SUBJECT).performTextInput("Bitcoin")
-            onNodeWithTag(SetupScreenTags.API_KEY).performTextInput("sk-123")
+            fillRubric()
             onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
             waitForIdle()
 
@@ -330,7 +325,7 @@ class AppWiringTest : ComposeUiTestRunner() {
 
             assertEquals(2, service.calls.size)
             assertEquals(service.calls[0], service.calls[1])
-            assertEquals(listOf("T", "Body", "Bitcoin", "sk-123"), service.calls[0])
+            assertEquals(listOf("T", "Body", "Bitcoin"), service.calls[0])
         }
 
     @Test
@@ -338,7 +333,7 @@ class AppWiringTest : ComposeUiTestRunner() {
         runComposeUiTest {
             val repository = InMemorySettingsRepository()
             setContent {
-                App(repository, viewModel = ScoreAnalysisViewModel(service = NeverCalledService()))
+                App(repository, viewModel = ScoreAnalysisViewModel(repository, NeverCalledService()))
             }
             fillRubric()
 

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -24,10 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.password
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.tekome.vcman.data.SampleRubric
@@ -35,7 +31,6 @@ import com.tekome.vcman.data.SampleRubrics
 import org.jetbrains.compose.resources.stringResource
 import vcman.sharedui.generated.resources.Res
 import vcman.sharedui.generated.resources.setup_analyze
-import vcman.sharedui.generated.resources.setup_api_key_label
 import vcman.sharedui.generated.resources.setup_load_sample
 import vcman.sharedui.generated.resources.setup_open_settings
 import vcman.sharedui.generated.resources.setup_rubric_text_label
@@ -46,17 +41,13 @@ data class SetupInput(
     val rubricTitle: String = "",
     val rubricText: String = "",
     val subject: String = "",
-    val apiKey: String = "",
-) {
-    override fun toString(): String = "SetupInput(rubricTitle=$rubricTitle, rubricText=$rubricText, subject=$subject, apiKey=***)"
-}
+)
 
 internal object SetupScreenTags {
     const val RUBRIC_TITLE = "setup_rubric_title"
     const val RUBRIC_TEXT = "setup_rubric_text"
     const val LOAD_SAMPLE = "setup_load_sample"
     const val SUBJECT = "setup_subject"
-    const val API_KEY = "setup_api_key"
     const val OPEN_SETTINGS = "setup_open_settings"
     const val ANALYZE = "setup_analyze"
     const val LOADING = "setup_loading"
@@ -70,7 +61,7 @@ fun SetupScreen(
     onInputChange: (SetupInput) -> Unit,
     loading: Boolean,
     error: String?,
-    onAnalyze: (rubricTitle: String, rubricText: String, subject: String, apiKey: String) -> Unit,
+    onAnalyze: (rubricTitle: String, rubricText: String, subject: String) -> Unit,
     onOpenSettings: () -> Unit,
     sampleRubric: SampleRubric = SampleRubrics.cryptoBenchScore,
 ) {
@@ -123,23 +114,6 @@ fun SetupScreen(
             singleLine = true,
             modifier = Modifier.fillMaxWidth().testTag(SetupScreenTags.SUBJECT),
         )
-        OutlinedTextField(
-            value = input.apiKey,
-            onValueChange = { onInputChange(input.copy(apiKey = it)) },
-            label = { Text(stringResource(Res.string.setup_api_key_label)) },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions =
-                KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    autoCorrectEnabled = false,
-                ),
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .semantics { password() }
-                    .testTag(SetupScreenTags.API_KEY),
-        )
         if (error != null) {
             Text(
                 text = error,
@@ -156,7 +130,6 @@ fun SetupScreen(
                     input.rubricTitle,
                     input.rubricText,
                     input.subject,
-                    input.apiKey,
                 )
             },
             enabled = !loading,
@@ -186,7 +159,7 @@ private fun SetupScreenPreview() {
             onInputChange = {},
             loading = false,
             error = "Vi du thong bao loi",
-            onAnalyze = { _, _, _, _ -> },
+            onAnalyze = { _, _, _ -> },
             onOpenSettings = {},
             sampleRubric = SampleRubric(title = "Demo", text = "Tieu chi 1\nTieu chi 2"),
         )
