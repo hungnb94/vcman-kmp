@@ -31,7 +31,7 @@ class AnalysisFailureTextTest : ComposeUiTestRunner() {
 
     @Test
     fun missingFields_isNotEmptyAndHasNoRawResourceKey() {
-        val text = textOf(AnalysisFailure.MissingFields(listOf(RequiredFieldId.Subject, RequiredFieldId.ApiKey)))
+        val text = textOf(AnalysisFailure.MissingFields(listOf(RequiredFieldId.Subject, RequiredFieldId.RubricText)))
 
         assertTrue(text.isNotBlank())
         assertFalse("setup_" in text)
@@ -42,6 +42,7 @@ class AnalysisFailureTextTest : ComposeUiTestRunner() {
         val all =
             listOf(
                 AnalysisFailure.MissingFields(RequiredFieldId.entries),
+                AnalysisFailure.NotConfigured,
                 AnalysisFailure.Network,
                 AnalysisFailure.Api(null),
                 AnalysisFailure.Api(500),

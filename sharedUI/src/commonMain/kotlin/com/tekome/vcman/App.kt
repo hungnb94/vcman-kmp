@@ -39,14 +39,14 @@ internal data object SettingsRoute
 @Composable
 fun App(
     settingsRepository: SettingsRepository,
-    viewModel: ScoreAnalysisViewModel = viewModel { ScoreAnalysisViewModel() },
+    viewModel: ScoreAnalysisViewModel = viewModel { ScoreAnalysisViewModel(settingsRepository) },
 ) {
     MaterialTheme {
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
         val language = rememberContentLanguage()
         AppContent(
             uiState = uiState,
-            onAnalyze = { title, text, subject, apiKey -> viewModel.analyze(title, text, subject, apiKey, language) },
+            onAnalyze = { title, text, subject -> viewModel.analyze(title, text, subject, language) },
             onAnalyzeAgain = viewModel::reset,
             settingsRepository = settingsRepository,
             modifier = Modifier.safeContentPadding(),
@@ -57,7 +57,7 @@ fun App(
 @Composable
 internal fun AppContent(
     uiState: AnalysisUiState,
-    onAnalyze: (rubricTitle: String, rubricText: String, subject: String, apiKey: String) -> Unit,
+    onAnalyze: (rubricTitle: String, rubricText: String, subject: String) -> Unit,
     onAnalyzeAgain: () -> Unit,
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
