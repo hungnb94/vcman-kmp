@@ -14,7 +14,7 @@ class KoogScoreAnalysisService internal constructor(
 ) : ScoreAnalysisService {
     @OptIn(ExperimentalTime::class)
     constructor() : this(
-        llmChatResolver = ::koogChatFactoryFor,
+        llmChatResolver = defaultLlmChatResolver,
         searchToolResolver = defaultSearchToolResolver(),
         promptBuilder = PromptBuilder,
         nowMillis = { Clock.System.now().toEpochMilliseconds() },
@@ -28,7 +28,7 @@ class KoogScoreAnalysisService internal constructor(
     ): Result<ProjectScoreReport> =
         runAnalysis(rules = koogErrorRules) {
             val tools = listOfNotNull(config.searchTool?.let(searchToolResolver))
-            val chat = llmChatResolver(config.provider).create(config.apiKey)
+            val chat = llmChatResolver(config.settings)
             val raw =
                 chat.complete(
                     systemPrompt = promptBuilder.buildSystemPrompt(rubric),

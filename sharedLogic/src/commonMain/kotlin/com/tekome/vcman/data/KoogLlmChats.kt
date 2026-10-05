@@ -11,10 +11,8 @@ import ai.koog.http.client.ktor.KtorKoogHttpClient
 import ai.koog.prompt.executor.clients.LLMClient
 import ai.koog.prompt.executor.clients.anthropic.AnthropicClientSettings
 import ai.koog.prompt.executor.clients.anthropic.AnthropicLLMClient
-import ai.koog.prompt.executor.clients.anthropic.AnthropicModels
 import ai.koog.prompt.executor.clients.openai.OpenAIClientSettings
 import ai.koog.prompt.executor.clients.openai.OpenAILLMClient
-import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.llms.MultiLLMPromptExecutor
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
@@ -26,26 +24,9 @@ import kotlin.reflect.typeOf
 
 private const val MAX_AGENT_ITERATIONS = 20
 
-internal fun koogChatFactoryFor(provider: LlmProvider): LlmChatFactory =
-    when (provider) {
-        LlmProvider.Anthropic -> {
-            LlmChatFactory { apiKey ->
-                KoogLlmChat(
-                    client = AnthropicLLMClient(apiKey = apiKey.value, httpClientFactory = KtorKoogHttpClient.Factory()),
-                    model = AnthropicModels.Sonnet_5,
-                )
-            }
-        }
-
-        LlmProvider.OpenAI -> {
-            LlmChatFactory { apiKey ->
-                KoogLlmChat(
-                    client = OpenAILLMClient(apiKey = apiKey.value, httpClientFactory = KtorKoogHttpClient.Factory()),
-                    model = OpenAIModels.Chat.GPT5_6Sol,
-                )
-            }
-        }
-    }
+/** Resolves the chat for the provider selected in [LlmSettings]; no provider-specific branching lives here. */
+internal val defaultLlmChatResolver: LlmChatResolver =
+    { settings -> settings.providerType.createChat(settings, KtorKoogHttpClient.Factory()) }
 
 private fun String.normalizedBaseUrl(): String = trim().trimEnd('/')
 
