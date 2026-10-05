@@ -60,7 +60,11 @@ internal class StoredSettingsRepository(
     override suspend fun save(settings: LlmSettings) =
         withContext(dispatcher) {
             // Secret first: if it fails, the non-secret values stay consistent with the previous save.
-            secrets.put(SECRET_API_KEY, settings.apiKey.value)
+            if (settings.apiKey.value.isEmpty()) {
+                secrets.remove(SECRET_API_KEY)
+            } else {
+                secrets.put(SECRET_API_KEY, settings.apiKey.value)
+            }
             prefs.putString(KEY_PROVIDER_ID, settings.providerType.id)
             prefs.putString(KEY_BASE_URL, settings.baseUrl)
             prefs.putString(KEY_MODEL, settings.model)

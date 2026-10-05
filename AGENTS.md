@@ -38,7 +38,7 @@ Reference for AI agents and developers working in this repo. Read `## Boundaries
 
 Koog's `android`-targeted artifacts are compiled against JVM 17 bytecode; calling one of Koog's own `inline` reified functions (e.g. `ai.koog.serialization.typeToken<T>()`) from `sharedLogic` would embed that JVM 17 bytecode into a JVM 11 compilation unit and fail to compile. Prefer the non-inline overload (e.g. `typeToken(kotlin.reflect.typeOf<T>())`) when Koog offers one; see `KoogLlmChats.kt` for a worked example.
 
-Not present yet: DI, persistence, navigation, and logging libraries. Networking (Ktor + kotlinx.serialization) and an LLM agent framework (Koog) were added in `sharedLogic` for issue #7 (`data.ScoreAnalysisService`) — see `## Recommended additions` below for what is still missing. No Gradle lint plugin (only an IDE-level ktlint setting in `.idea/ktlint-plugin.xml`). CI is configured via `.github/workflows/ci.yml` (runs the `## Test` suites on PRs to `main` and pushes to `main`); see `## Recommended additions` below.
+Not present yet: DI, database persistence, navigation, and logging libraries. Key-value preferences (multiplatform-settings) exist in `sharedLogic` (`data.SettingsRepository`). Networking (Ktor + kotlinx.serialization) and an LLM agent framework (Koog) were added in `sharedLogic` for issue #7 (`data.ScoreAnalysisService`) — see `## Recommended additions` below for what is still missing. No Gradle lint plugin (only an IDE-level ktlint setting in `.idea/ktlint-plugin.xml`). CI is configured via `.github/workflows/ci.yml` (runs the `## Test` suites on PRs to `main` and pushes to `main`); see `## Recommended additions` below.
 
 ## Project structure
 
@@ -148,14 +148,14 @@ Supported languages: `en` (default/fallback) and `vi`. The UI follows the device
 
 ## Recommended additions (not installed)
 
-**Everything in this section is NOT installed except the Networking and CI/CD rows below (installed for issue #7 and the CI workflow, respectively). Do not assume any other library listed here is available in the code.**
+**Everything in this section is NOT installed except the Networking, Preferences and CI/CD rows below (installed for issue #7, issue #40 and the CI workflow, respectively). Do not assume any other library listed here is available in the code.**
 
 | Area | Suggested | Why | Applies to | Status |
 |---|---|---|---|---|
 | Networking | Ktor client + kotlinx.serialization | Official multiplatform HTTP client, auto engine selection per target | `sharedLogic`, all targets | INSTALLED (issue #7: `data.FirecrawlSearchTool`, Koog LLM clients) |
 | DI | Koin, prefer Koin Annotations (KSP) | Compile-time safe bindings; catches missing bindings at build time, useful for AI-agent-driven edits | `sharedLogic` | NOT INSTALLED |
 | Persistence | SQLDelight or Room (KMP) | SQL-first vs annotation-based; Room only gained JS/WasmJS support in Room 3.0 (03/2026) — previously SQLDelight was the only option for this repo's `js` target. Both support JS/WasmJS now — pick per team preference | `sharedLogic` | NOT INSTALLED |
-| Preferences | multiplatform-settings | Simple key-value store, supports all targets including JS | `sharedLogic` | NOT INSTALLED |
+| Preferences | multiplatform-settings | Simple key-value store, supports all targets including JS | `sharedLogic` | INSTALLED (issue #40: `data.StoredSettingsRepository`; iOS factory only so far) |
 | Navigation | AndroidX Navigation Compose Multiplatform (Decompose as advanced alternative) | Official, same API as Jetpack Compose Navigation | `sharedUI` only, not `webApp` | NOT INSTALLED |
 | Logging | Kermit or Napier | Multiplatform logging; Kermit adds crash-reporting integrations | `sharedLogic` | NOT INSTALLED |
 | Lint/format | ktlint + Compose Rules ruleset | Catches Compose-specific pitfalls; detekt/Spotless optional | `sharedUI` (Compose rules), all Kotlin code (ktlint) | NOT INSTALLED |
