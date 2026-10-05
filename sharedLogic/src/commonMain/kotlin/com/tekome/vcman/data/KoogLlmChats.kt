@@ -5,14 +5,19 @@ import ai.koog.agents.core.agent.exception.AIAgentException
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.core.tools.annotations.LLMDescription
+import ai.koog.http.client.KoogHttpClient
 import ai.koog.http.client.KoogHttpClientException
 import ai.koog.http.client.ktor.KtorKoogHttpClient
 import ai.koog.prompt.executor.clients.LLMClient
+import ai.koog.prompt.executor.clients.anthropic.AnthropicClientSettings
 import ai.koog.prompt.executor.clients.anthropic.AnthropicLLMClient
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels
+import ai.koog.prompt.executor.clients.openai.OpenAIClientSettings
 import ai.koog.prompt.executor.clients.openai.OpenAILLMClient
 import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.llms.MultiLLMPromptExecutor
+import ai.koog.prompt.llm.LLMCapability
+import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import ai.koog.serialization.typeToken
 import kotlinx.coroutines.CancellationException
@@ -41,6 +46,68 @@ internal fun koogChatFactoryFor(provider: LlmProvider): LlmChatFactory =
             }
         }
     }
+
+private fun String.normalizedBaseUrl(): String = trim().trimEnd('/')
+
+/**
+ * Koog appends the request path to the base URL's own path, so a base URL that already carries a path
+ * (`https://openrouter.ai/api/v1`) must not receive another `v1/`.
+ */
+internal fun openAiChatPath(baseUrl: String): String = if (httpPathOf(baseUrl).isEmpty()) "v1/chat/completions" else "chat/completions"
+
+/** Symmetric to [openAiChatPath]: a base URL ending in `/v1` already carries the version segment. */
+internal fun anthropicMessagesPath(baseUrl: String): String = if (httpPathOf(baseUrl).split('/').last() == "v1") "messages" else "v1/messages"
+
+internal fun openAiCompatibleChat(
+    settings: LlmSettings,
+    httpClientFactory: KoogHttpClient.Factory,
+): LlmChat {
+    val baseUrl = settings.baseUrl.normalizedBaseUrl()
+    val model =
+        LLModel(
+            provider = LLMProvider.OpenAI,
+            id = settings.model.trim(),
+            capabilities = listOf(LLMCapability.Completion, LLMCapability.Tools, LLMCapability.OpenAIEndpoint.Completions),
+        )
+    return KoogLlmChat(
+        client =
+            OpenAILLMClient(
+                apiKey = settings.apiKey.value.trim(),
+                settings = OpenAIClientSettings(baseUrl = baseUrl, chatCompletionsPath = openAiChatPath(baseUrl)),
+                httpClientFactory = httpClientFactory,
+            ),
+        model = model,
+    )
+}
+
+internal fun anthropicCompatibleChat(
+    settings: LlmSettings,
+    httpClientFactory: KoogHttpClient.Factory,
+): LlmChat {
+    val baseUrl = settings.baseUrl.normalizedBaseUrl()
+    val modelId = settings.model.trim()
+    val model =
+        LLModel(
+            provider = LLMProvider.Anthropic,
+            id = modelId,
+            capabilities = listOf(LLMCapability.Completion, LLMCapability.Tools),
+        )
+    return KoogLlmChat(
+        client =
+            AnthropicLLMClient(
+                apiKey = settings.apiKey.value.trim(),
+                settings =
+                    AnthropicClientSettings(
+                        // Koog rejects any model missing from this map with "Unsupported model".
+                        modelVersionsMap = mapOf(model to modelId),
+                        baseUrl = baseUrl,
+                        messagesPath = anthropicMessagesPath(baseUrl),
+                    ),
+                httpClientFactory = httpClientFactory,
+            ),
+        model = model,
+    )
+}
 
 internal val koogErrorRules: List<(Throwable) -> AnalysisError?> =
     errorRules +
