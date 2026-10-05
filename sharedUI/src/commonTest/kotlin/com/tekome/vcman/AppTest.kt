@@ -16,6 +16,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.text.AnnotatedString
+import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.LlmRequestConfig
 import com.tekome.vcman.data.ScoreAnalysisService
 import com.tekome.vcman.domain.LanguageTag
@@ -231,6 +232,7 @@ class AppWiringTest : ComposeUiTestRunner() {
         private val results: List<CompletableDeferred<Result<ProjectScoreReport>>>,
     ) : ScoreAnalysisService {
         val calls = mutableListOf<List<String>>()
+        val configs = mutableListOf<LlmRequestConfig>()
         private var callIndex = 0
 
         override suspend fun analyze(
@@ -240,6 +242,7 @@ class AppWiringTest : ComposeUiTestRunner() {
             outputLanguage: LanguageTag,
         ): Result<ProjectScoreReport> {
             calls += listOf(rubric.title, rubric.text, subjectQuery)
+            configs += config
             return results[callIndex++].await()
         }
     }
@@ -262,6 +265,22 @@ class AppWiringTest : ComposeUiTestRunner() {
             waitForIdle()
 
             onNodeWithTag(SetupScreenTags.ERROR).assertExists()
+        }
+
+    @Test
+    fun notConfigured_showsErrorAndSettingsEntryPoint_withoutCallingService() =
+        runComposeUiTest {
+            val repository = InMemorySettingsRepository(settings = null)
+            setContent {
+                App(repository, viewModel = ScoreAnalysisViewModel(repository, NeverCalledService()))
+            }
+
+            fillRubric()
+            onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
+            waitForIdle()
+
+            onNodeWithTag(SetupScreenTags.ERROR).assertExists()
+            onNodeWithTag(SetupScreenTags.OPEN_SETTINGS).assertExists()
         }
 
     @Test
@@ -349,5 +368,37 @@ class AppWiringTest : ComposeUiTestRunner() {
                 .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("T")))
             onNodeWithTag(SetupScreenTags.SUBJECT)
                 .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("Bitcoin")))
+        }
+
+    @Test
+    fun savingInSettings_thenAnalyze_usesSavedSettings() =
+        runComposeUiTest {
+            val result = CompletableDeferred<Result<ProjectScoreReport>>()
+            val service = RecordingService(listOf(result))
+            val repository = InMemorySettingsRepository()
+            setContent {
+                App(repository, viewModel = ScoreAnalysisViewModel(repository, service))
+            }
+            fillRubric()
+
+            onNodeWithTag(SetupScreenTags.OPEN_SETTINGS).performClick()
+            waitForIdle()
+            onNodeWithTag(SettingsScreenTags.provider(LlmProviderType.AnthropicCompatible)).performClick()
+            onNodeWithTag(SettingsScreenTags.API_KEY).performTextInput("sk-from-settings")
+            onNodeWithTag(SettingsScreenTags.SAVE).performScrollTo().performClick()
+            waitForIdle()
+            onNodeWithTag(SettingsScreenTags.SAVE_STATUS).assertExists()
+            onNodeWithTag(SettingsScreenTags.BACK).performScrollTo().performClick()
+            waitForIdle()
+
+            onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
+            waitForIdle()
+
+            val settings = service.configs.single().settings
+            assertEquals(LlmProviderType.AnthropicCompatible, settings.providerType)
+            assertEquals("sk-from-settings", settings.apiKey.value)
+            assertEquals(LlmProviderType.AnthropicCompatible.defaultBaseUrl, settings.baseUrl)
+            assertEquals(settings, repository.settings)
+            result.complete(Result.success(fixtureReport))
         }
 }
