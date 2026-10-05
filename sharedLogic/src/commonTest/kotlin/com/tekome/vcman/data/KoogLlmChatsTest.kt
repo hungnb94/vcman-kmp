@@ -2,6 +2,7 @@ package com.tekome.vcman.data
 
 import ai.koog.agents.core.agent.exception.AIAgentMaxNumberOfIterationsReachedException
 import ai.koog.http.client.KoogHttpClientException
+import ai.koog.http.client.ktor.KtorKoogHttpClient
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -127,5 +128,28 @@ class KoogLlmChatsTest {
         val error = classify(exception, koogErrorRules)
 
         assertEquals(AnalysisError.Network, error)
+    }
+
+    @Test
+    fun openAiChatPath_addsVersionOnlyWhenBaseUrlHasNoPath() {
+        assertEquals("v1/chat/completions", openAiChatPath("https://api.openai.com"))
+        assertEquals("chat/completions", openAiChatPath("https://api.openai.com/v1"))
+        assertEquals("chat/completions", openAiChatPath("https://openrouter.ai/api/v1"))
+    }
+
+    @Test
+    fun anthropicMessagesPath_addsVersionOnlyWhenBaseUrlDoesNotEndInV1() {
+        assertEquals("v1/messages", anthropicMessagesPath("https://api.anthropic.com"))
+        assertEquals("messages", anthropicMessagesPath("https://api.anthropic.com/v1"))
+        assertEquals("v1/messages", anthropicMessagesPath("https://proxy.example.com/anthropic"))
+    }
+
+    @Test
+    fun providerTypes_buildKoogChatFromSettings() {
+        LlmProviderType.entries.forEach { type ->
+            val chat = type.createChat(validSettings(type), KtorKoogHttpClient.Factory())
+
+            assertIs<KoogLlmChat>(chat, type.id)
+        }
     }
 }
