@@ -4,6 +4,7 @@ import com.russhwolf.settings.ExperimentalSettingsApi
 import com.russhwolf.settings.MapSettings
 import com.russhwolf.settings.coroutines.toSuspendSettings
 import kotlinx.coroutines.test.runTest
+import java.io.IOException
 import java.security.InvalidKeyException
 import java.security.KeyStoreException
 import java.security.ProviderException
@@ -82,6 +83,22 @@ class KeystoreSecretStoreTest {
                     override fun getOrCreate(alias: String) = keys.getOrCreate(alias)
 
                     override fun delete(alias: String) = throw KeyStoreException("cannot delete")
+                }
+            val flaky = KeystoreSecretStore(suspendStorage, AesGcmSecretCipher(failingDelete, "alias"), failingDelete, "alias")
+
+            assertNull(flaky.get("llm.api_key"))
+            assertNull(storage.getStringOrNull("llm.api_key"))
+        }
+
+    @Test
+    fun ioFailureOnKeyDeleteStillReadsAsNotSet() =
+        runTest {
+            storage.putString("llm.api_key", "garbage")
+            val failingDelete =
+                object : SecretKeyProvider {
+                    override fun getOrCreate(alias: String) = keys.getOrCreate(alias)
+
+                    override fun delete(alias: String) = throw IOException("keystore load failed")
                 }
             val flaky = KeystoreSecretStore(suspendStorage, AesGcmSecretCipher(failingDelete, "alias"), failingDelete, "alias")
 

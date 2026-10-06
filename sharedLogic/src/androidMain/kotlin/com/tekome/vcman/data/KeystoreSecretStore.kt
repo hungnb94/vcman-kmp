@@ -4,6 +4,7 @@ import com.russhwolf.settings.ExperimentalSettingsApi
 import com.russhwolf.settings.coroutines.SuspendSettings
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.ProviderException
 
@@ -13,7 +14,7 @@ import java.security.ProviderException
  * "not set" and the next [put] starts from a fresh key instead of reusing a broken one. A transient keystore failure
  * reads as "not set" for that call only and discards nothing.
  *
- * Calls are serialized by a [Mutex]: a [get] that finds an undecryptable value must not discard the ciphertext or
+ * Calls are serialized by a process-wide [Mutex]: a [get] that finds an undecryptable value must not discard the ciphertext or
  * key written by a concurrent [put].
  */
 @OptIn(ExperimentalSettingsApi::class)
@@ -23,8 +24,6 @@ internal class KeystoreSecretStore(
     private val keys: SecretKeyProvider,
     private val keyAlias: String,
 ) : SecretStore {
-    private val lock = Mutex()
-
     override suspend fun get(name: String): String? = lock.withLock { read(name) }
 
     private suspend fun read(name: String): String? {
@@ -43,6 +42,7 @@ internal class KeystoreSecretStore(
                 keys.delete(keyAlias)
             } catch (_: GeneralSecurityException) {
             } catch (_: ProviderException) {
+            } catch (_: IOException) {
             }
             null
         }
@@ -64,6 +64,11 @@ internal class KeystoreSecretStore(
     }
 
     override suspend fun remove(name: String) = lock.withLock { storage.remove(name) }
+
+    private companion object {
+        // Process-wide: every instance guards the same DataStore files and Keystore alias, so one lock must cover all.
+        val lock = Mutex()
+    }
 
     private fun encryptWithFreshKey(
         value: String,
