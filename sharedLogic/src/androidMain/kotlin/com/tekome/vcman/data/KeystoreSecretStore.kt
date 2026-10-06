@@ -8,15 +8,6 @@ import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.ProviderException
 
-/**
- * [SecretStore] keeping AES-GCM ciphertext in [storage]. When a stored value can never be decrypted again (key lost
- * or permanently invalidated, data corrupted) the ciphertext and the key are discarded, so the secret reads as
- * "not set" and the next [put] starts from a fresh key instead of reusing a broken one. A transient keystore failure
- * reads as "not set" for that call only and discards nothing.
- *
- * Calls are serialized by a process-wide [Mutex]: a [get] that finds an undecryptable value must not discard the ciphertext or
- * key written by a concurrent [put].
- */
 @OptIn(ExperimentalSettingsApi::class)
 internal class KeystoreSecretStore(
     private val storage: SuspendSettings,
@@ -32,12 +23,10 @@ internal class KeystoreSecretStore(
             try {
                 cipher.decrypt(encoded, name)
             } catch (_: SecretTemporarilyUnavailableException) {
-                return null // transient keystore failure: keep ciphertext and key, the next read may succeed
+                return null
             }
         return decrypted ?: run {
             storage.remove(name)
-            // Best effort: the ciphertext is already gone, so a failing delete must not turn "not set" into a crash.
-            // A stale key is harmless; the next put replaces it.
             try {
                 keys.delete(keyAlias)
             } catch (_: GeneralSecurityException) {
@@ -66,7 +55,6 @@ internal class KeystoreSecretStore(
     override suspend fun remove(name: String) = lock.withLock { storage.remove(name) }
 
     private companion object {
-        // Process-wide: every instance guards the same DataStore files and Keystore alias, so one lock must cover all.
         val lock = Mutex()
     }
 
