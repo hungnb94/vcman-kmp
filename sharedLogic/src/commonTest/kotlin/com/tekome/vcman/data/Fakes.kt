@@ -24,9 +24,9 @@ internal class FakeSecretStore(
     val values: MutableMap<String, String> = mutableMapOf(),
     var failOnPut: Boolean = false,
 ) : SecretStore {
-    override fun get(name: String): String? = values[name]
+    override suspend fun get(name: String): String? = values[name]
 
-    override fun put(
+    override suspend fun put(
         name: String,
         value: String,
     ) {
@@ -34,7 +34,7 @@ internal class FakeSecretStore(
         values[name] = value
     }
 
-    override fun remove(name: String) {
+    override suspend fun remove(name: String) {
         values.remove(name)
     }
 }

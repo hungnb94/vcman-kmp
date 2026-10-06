@@ -32,7 +32,8 @@ Reference for AI agents and developers working in this repo. Read `## Boundaries
 | kotlinx.coroutines (`kotlinx-coroutines-test`, `commonTest` only) | 1.11.0 |
 | Compose UI test (`org.jetbrains.compose.ui:ui-test`, `sharedUI` `commonTest` only) | 1.12.1 |
 | Robolectric (`sharedUI` `androidHostTest` only, backs `runComposeUiTest` on the JVM) | 4.15.1 |
-| multiplatform-settings (`com.russhwolf:multiplatform-settings`, `sharedLogic`; `multiplatform-settings-test` for `MapSettings` in `commonTest` only) | 1.3.0 |
+| multiplatform-settings (`com.russhwolf:multiplatform-settings` + `-coroutines` for `SuspendSettings`, `sharedLogic`; `-datastore` in `androidMain` only; `-test` for `MapSettings` in `commonTest` only) | 1.3.0 |
+| AndroidX DataStore (`androidx.datastore:datastore-preferences`, `sharedLogic` `androidMain` only; backs the Android settings/secret stores) | 1.2.1 |
 
 `gradle/libs.versions.toml` is the single source of truth for JVM/Kotlin dependency versions; if this table disagrees with it, **the catalog wins**. `webApp/package.json` is the source of truth for web dependency versions. `^x.y.z` values are npm semver ranges copied from `webApp/package.json` (minimum version, not an exact pin) — all other rows are exact pinned versions from `gradle/libs.versions.toml`.
 

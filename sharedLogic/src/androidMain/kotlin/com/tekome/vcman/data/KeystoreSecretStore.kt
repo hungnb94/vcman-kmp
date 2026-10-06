@@ -1,6 +1,9 @@
 package com.tekome.vcman.data
 
-import com.russhwolf.settings.Settings
+import com.russhwolf.settings.ExperimentalSettingsApi
+import com.russhwolf.settings.coroutines.SuspendSettings
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.security.GeneralSecurityException
 import java.security.ProviderException
 
@@ -10,17 +13,21 @@ import java.security.ProviderException
  * "not set" and the next [put] starts from a fresh key instead of reusing a broken one. A transient keystore failure
  * reads as "not set" for that call only and discards nothing.
  *
- * Calls are serialized: a [get] that finds an undecryptable value must not discard the ciphertext or key written by a
- * concurrent [put].
+ * Calls are serialized by a [Mutex]: a [get] that finds an undecryptable value must not discard the ciphertext or
+ * key written by a concurrent [put].
  */
+@OptIn(ExperimentalSettingsApi::class)
 internal class KeystoreSecretStore(
-    private val storage: Settings,
+    private val storage: SuspendSettings,
     private val cipher: AesGcmSecretCipher,
     private val keys: SecretKeyProvider,
     private val keyAlias: String,
 ) : SecretStore {
-    @Synchronized
-    override fun get(name: String): String? {
+    private val lock = Mutex()
+
+    override suspend fun get(name: String): String? = lock.withLock { read(name) }
+
+    private suspend fun read(name: String): String? {
         val encoded = storage.getStringOrNull(name) ?: return null
         val decrypted =
             try {
@@ -41,11 +48,10 @@ internal class KeystoreSecretStore(
         }
     }
 
-    @Synchronized
-    override fun put(
+    override suspend fun put(
         name: String,
         value: String,
-    ) {
+    ) = lock.withLock {
         val encoded =
             try {
                 cipher.encrypt(value, name)
@@ -57,8 +63,7 @@ internal class KeystoreSecretStore(
         storage.putString(name, encoded)
     }
 
-    @Synchronized
-    override fun remove(name: String) = storage.remove(name)
+    override suspend fun remove(name: String) = lock.withLock { storage.remove(name) }
 
     private fun encryptWithFreshKey(
         value: String,
