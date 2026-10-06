@@ -22,6 +22,7 @@ internal fun httpHostOf(url: String): String? {
             .substringAfterLast('@')
     val host =
         if (authority.startsWith("[")) {
+            if (!authority.contains(']')) return null
             authority.substringBefore(']') + "]"
         } else {
             authority.substringBefore(':')

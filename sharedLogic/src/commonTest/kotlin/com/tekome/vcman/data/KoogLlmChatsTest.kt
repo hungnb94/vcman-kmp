@@ -23,7 +23,6 @@ class KoogLlmChatsTest {
         val body: String,
     )
 
-    /** Drives [type]'s builder against a MockEngine that records the request and answers 401; no real network. */
     private suspend fun requestSentBy(
         type: LlmProviderType,
         baseUrl: String,
@@ -59,7 +58,6 @@ class KoogLlmChatsTest {
     @Test
     fun createChat_sendsRequestToExpectedUrlWithAuthAndCustomModel() =
         runTest {
-            // (provider, baseUrl, expected url, auth header name, expected auth value)
             val cases =
                 listOf(
                     listOf(LlmProviderType.OpenAICompatible, "https://api.openai.com/v1", "https://api.openai.com/v1/chat/completions"),

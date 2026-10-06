@@ -54,7 +54,7 @@ class LlmSettingsValidationTest {
 
     @Test
     fun invalidUrls() {
-        listOf("", "api.openai.com", "ftp://x", "https://", "http:// host", "https://:443", "https://[]", "javascript:alert(1)")
+        listOf("", "api.openai.com", "ftp://x", "https://", "http:// host", "https://:443", "https://[]", "http://[::1", "javascript:alert(1)")
             .forEach { assertEquals(setOf(SettingsFieldError.BaseUrlInvalid), settings(url = it).validate(), it) }
     }
 
