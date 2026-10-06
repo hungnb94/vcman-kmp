@@ -32,7 +32,8 @@ Reference for AI agents and developers working in this repo. Read `## Boundaries
 | kotlinx.coroutines (`kotlinx-coroutines-test`, `commonTest` only) | 1.11.0 |
 | Compose UI test (`org.jetbrains.compose.ui:ui-test`, `sharedUI` `commonTest` only) | 1.12.1 |
 | Robolectric (`sharedUI` `androidHostTest` only, backs `runComposeUiTest` on the JVM) | 4.15.1 |
-| multiplatform-settings (`com.russhwolf:multiplatform-settings`, `sharedLogic`; `multiplatform-settings-test` for `MapSettings` in `commonTest` only) | 1.3.0 |
+| multiplatform-settings (`com.russhwolf:multiplatform-settings` + `-coroutines` for `SuspendSettings`, `sharedLogic`; `-datastore` in `androidMain` only; `-test` for `MapSettings` in `commonTest` only) | 1.3.0 |
+| AndroidX DataStore (`androidx.datastore:datastore-preferences`, `sharedLogic` `androidMain` only; backs the Android settings/secret stores) | 1.2.1 |
 
 `gradle/libs.versions.toml` is the single source of truth for JVM/Kotlin dependency versions; if this table disagrees with it, **the catalog wins**. `webApp/package.json` is the source of truth for web dependency versions. `^x.y.z` values are npm semver ranges copied from `webApp/package.json` (minimum version, not an exact pin) — all other rows are exact pinned versions from `gradle/libs.versions.toml`.
 
@@ -155,7 +156,7 @@ Supported languages: `en` (default/fallback) and `vi`. The UI follows the device
 | Networking | Ktor client + kotlinx.serialization | Official multiplatform HTTP client, auto engine selection per target | `sharedLogic`, all targets | INSTALLED (issue #7: `data.FirecrawlSearchTool`, Koog LLM clients) |
 | DI | Koin, prefer Koin Annotations (KSP) | Compile-time safe bindings; catches missing bindings at build time, useful for AI-agent-driven edits | `sharedLogic` | NOT INSTALLED |
 | Persistence | SQLDelight or Room (KMP) | SQL-first vs annotation-based; Room only gained JS/WasmJS support in Room 3.0 (03/2026) — previously SQLDelight was the only option for this repo's `js` target. Both support JS/WasmJS now — pick per team preference | `sharedLogic` | NOT INSTALLED |
-| Preferences | multiplatform-settings | Simple key-value store, supports all targets including JS | `sharedLogic` | INSTALLED (issue #40: `data.StoredSettingsRepository`; iOS factory only so far) |
+| Preferences | multiplatform-settings | Simple key-value store, supports all targets including JS | `sharedLogic` | INSTALLED (issue #40: `data.StoredSettingsRepository`; `createSettingsRepository` on Android (DataStore + Keystore-encrypted key) and iOS (`NSUserDefaults` + Keychain)) |
 | Navigation | AndroidX Navigation Compose Multiplatform (Decompose as advanced alternative) | Official, same API as Jetpack Compose Navigation | `sharedUI` only, not `webApp` | NOT INSTALLED |
 | Logging | Kermit or Napier | Multiplatform logging; Kermit adds crash-reporting integrations | `sharedLogic` | NOT INSTALLED |
 | Lint/format | ktlint + Compose Rules ruleset | Catches Compose-specific pitfalls; detekt/Spotless optional | `sharedUI` (Compose rules), all Kotlin code (ktlint) | NOT INSTALLED |

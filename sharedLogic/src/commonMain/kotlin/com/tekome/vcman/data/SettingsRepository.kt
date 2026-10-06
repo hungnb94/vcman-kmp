@@ -1,6 +1,7 @@
 package com.tekome.vcman.data
 
-import com.russhwolf.settings.Settings
+import com.russhwolf.settings.ExperimentalSettingsApi
+import com.russhwolf.settings.coroutines.SuspendSettings
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -12,31 +13,33 @@ interface SettingsRepository {
 }
 
 internal interface SecretStore {
-    fun get(name: String): String?
+    suspend fun get(name: String): String?
 
-    fun put(
+    suspend fun put(
         name: String,
         value: String,
     )
 
-    fun remove(name: String)
+    suspend fun remove(name: String)
 }
 
+@OptIn(ExperimentalSettingsApi::class)
 internal class SettingsSecretStore(
-    private val settings: Settings,
+    private val settings: SuspendSettings,
 ) : SecretStore {
-    override fun get(name: String): String? = settings.getStringOrNull(name)
+    override suspend fun get(name: String): String? = settings.getStringOrNull(name)
 
-    override fun put(
+    override suspend fun put(
         name: String,
         value: String,
     ) = settings.putString(name, value)
 
-    override fun remove(name: String) = settings.remove(name)
+    override suspend fun remove(name: String) = settings.remove(name)
 }
 
+@OptIn(ExperimentalSettingsApi::class)
 internal class StoredSettingsRepository(
-    private val prefs: Settings,
+    private val prefs: SuspendSettings,
     private val secrets: SecretStore,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : SettingsRepository {

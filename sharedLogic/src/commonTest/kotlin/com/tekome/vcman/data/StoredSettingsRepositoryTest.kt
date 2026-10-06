@@ -1,6 +1,8 @@
 package com.tekome.vcman.data
 
+import com.russhwolf.settings.ExperimentalSettingsApi
 import com.russhwolf.settings.MapSettings
+import com.russhwolf.settings.coroutines.toSuspendSettings
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -9,10 +11,11 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
+@OptIn(ExperimentalSettingsApi::class)
 class StoredSettingsRepositoryTest {
     private val prefs = MapSettings()
     private val secrets = FakeSecretStore()
-    private val repository = StoredSettingsRepository(prefs, secrets)
+    private val repository = StoredSettingsRepository(prefs.toSuspendSettings(), secrets)
 
     @Test
     fun emptyRepositoryLoadsNull() =
@@ -90,13 +93,14 @@ class StoredSettingsRepositoryTest {
         }
 
     @Test
-    fun settingsSecretStore_delegatesToSettings() {
-        val store = SettingsSecretStore(MapSettings())
+    fun settingsSecretStore_delegatesToSettings() =
+        runTest {
+            val store = SettingsSecretStore(MapSettings().toSuspendSettings())
 
-        assertNull(store.get("a"))
-        store.put("a", "1")
-        assertEquals("1", store.get("a"))
-        store.remove("a")
-        assertNull(store.get("a"))
-    }
+            assertNull(store.get("a"))
+            store.put("a", "1")
+            assertEquals("1", store.get("a"))
+            store.remove("a")
+            assertNull(store.get("a"))
+        }
 }
