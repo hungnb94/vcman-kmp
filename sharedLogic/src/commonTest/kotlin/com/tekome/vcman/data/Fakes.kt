@@ -1,6 +1,5 @@
 package com.tekome.vcman.data
 
-/** In-memory [SettingsRepository] that records writes so tests can assert "nothing was saved". */
 internal class FakeSettingsRepository(
     var settings: LlmSettings? = null,
     var failOnSave: Boolean = false,
@@ -21,7 +20,6 @@ internal class FakeSettingsRepository(
     }
 }
 
-/** Map-backed [SecretStore] for repository tests. */
 internal class FakeSecretStore(
     val values: MutableMap<String, String> = mutableMapOf(),
     var failOnPut: Boolean = false,

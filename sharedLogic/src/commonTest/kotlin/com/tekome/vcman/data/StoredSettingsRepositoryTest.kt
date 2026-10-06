@@ -70,6 +70,16 @@ class StoredSettingsRepositoryTest {
         }
 
     @Test
+    fun savingBlankKeyRemovesStoredSecret() =
+        runTest {
+            repository.save(validSettings(key = "sk-old"))
+
+            repository.save(validSettings().copy(apiKey = ApiKey("")))
+
+            assertNull(secrets.values["llm.api_key"])
+        }
+
+    @Test
     fun keyIsOnlyEverWrittenToTheSecretStore() =
         runTest {
             repository.save(validSettings(key = "sk-plaintext-secret"))
