@@ -43,6 +43,8 @@ class UrlChecksTest {
         assertEquals("[::1]", httpHostOf("http://[::1]:80"))
         assertEquals("host", httpHostOf("https://user:pw@host/p"))
         assertNull(httpHostOf("mailto:a@b.c"))
+        assertNull(httpHostOf("http://[::1"))
+        assertNull(httpHostOf("https://[evil"))
     }
 
     @Test

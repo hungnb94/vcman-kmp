@@ -54,6 +54,7 @@ kotlin {
             implementation(libs.ktor.serialization.kotlinxJson)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.multiplatform.settings)
+            implementation(libs.multiplatform.settings.coroutines)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -63,6 +64,8 @@ kotlin {
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.androidx.datastore.preferences)
+            implementation(libs.multiplatform.settings.datastore)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
