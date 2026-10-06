@@ -3,6 +3,7 @@ package com.tekome.vcman.data
 import com.russhwolf.settings.MapSettings
 import kotlinx.coroutines.test.runTest
 import java.security.InvalidKeyException
+import java.security.KeyStoreException
 import java.security.ProviderException
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -54,12 +55,28 @@ class KeystoreSecretStoreTest {
     @Test
     fun lostKeyBehavesLikeNotConfiguredAndRecoversOnNextPut() {
         store.put("llm.api_key", "sk-1")
-        val afterKeyLoss = KeystoreSecretStore(storage, AesGcmSecretCipher(SoftwareKeyProvider(), "alias"), keys, "alias")
+        val afterKeyLoss =
+            KeystoreSecretStore(storage, AesGcmSecretCipher(SoftwareKeyProvider(), "alias"), keys, "alias")
 
         assertNull(afterKeyLoss.get("llm.api_key"))
 
         afterKeyLoss.put("llm.api_key", "sk-2")
         assertEquals("sk-2", afterKeyLoss.get("llm.api_key"))
+    }
+
+    @Test
+    fun failingKeyDeleteStillReadsAsNotSet() {
+        storage.putString("llm.api_key", "garbage")
+        val failingDelete =
+            object : SecretKeyProvider {
+                override fun getOrCreate(alias: String) = keys.getOrCreate(alias)
+
+                override fun delete(alias: String) = throw KeyStoreException("cannot delete")
+            }
+        val flaky = KeystoreSecretStore(storage, AesGcmSecretCipher(failingDelete, "alias"), failingDelete, "alias")
+
+        assertNull(flaky.get("llm.api_key"))
+        assertNull(storage.getStringOrNull("llm.api_key"))
     }
 
     @Test

@@ -6,9 +6,12 @@ import java.security.ProviderException
 
 /**
  * [SecretStore] keeping AES-GCM ciphertext in [storage]. When a stored value can never be decrypted again (key lost
- * or permanently invalidated, data corrupted) the ciphertext and the key are discarded, so the secret reads as "not set" and the
- * next [put] starts from a fresh key instead of reusing a broken one. A transient keystore failure reads as "not set"
- * for that call only and discards nothing.
+ * or permanently invalidated, data corrupted) the ciphertext and the key are discarded, so the secret reads as
+ * "not set" and the next [put] starts from a fresh key instead of reusing a broken one. A transient keystore failure
+ * reads as "not set" for that call only and discards nothing.
+ *
+ * Calls are serialized: a [get] that finds an undecryptable value must not discard the ciphertext or key written by a
+ * concurrent [put].
  */
 internal class KeystoreSecretStore(
     private val storage: Settings,
@@ -16,6 +19,7 @@ internal class KeystoreSecretStore(
     private val keys: SecretKeyProvider,
     private val keyAlias: String,
 ) : SecretStore {
+    @Synchronized
     override fun get(name: String): String? {
         val encoded = storage.getStringOrNull(name) ?: return null
         val decrypted =
@@ -26,11 +30,18 @@ internal class KeystoreSecretStore(
             }
         return decrypted ?: run {
             storage.remove(name)
-            keys.delete(keyAlias)
+            // Best effort: the ciphertext is already gone, so a failing delete must not turn "not set" into a crash.
+            // A stale key is harmless; the next put replaces it.
+            try {
+                keys.delete(keyAlias)
+            } catch (_: GeneralSecurityException) {
+            } catch (_: ProviderException) {
+            }
             null
         }
     }
 
+    @Synchronized
     override fun put(
         name: String,
         value: String,
@@ -46,6 +57,7 @@ internal class KeystoreSecretStore(
         storage.putString(name, encoded)
     }
 
+    @Synchronized
     override fun remove(name: String) = storage.remove(name)
 
     private fun encryptWithFreshKey(
