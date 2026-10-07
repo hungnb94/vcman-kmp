@@ -28,8 +28,8 @@
     <string name="settings_provider_label">Provider</string>
     <string name="settings_provider_option">%1$s-compatible</string>
     <string name="settings_api_key_label">API key</string>
-    <string name="settings_show_key">Show</string>
-    <string name="settings_hide_key">Hide</string>
+    <string name="settings_show_key">Show API key</string>
+    <string name="settings_hide_key">Hide API key</string>
     <string name="settings_base_url_label">Base URL</string>
     <string name="settings_model_label">Model</string>
     <string name="settings_save">Save</string>

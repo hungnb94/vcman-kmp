@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -29,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.password
 import androidx.compose.ui.semantics.semantics
@@ -98,6 +100,7 @@ fun SettingsScreen(
         modifier =
             modifier
                 .fillMaxSize()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -109,7 +112,7 @@ fun SettingsScreen(
             Text(
                 text = stringResource(Res.string.settings_title),
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.testTag(SettingsScreenTags.TITLE),
+                modifier = Modifier.testTag(SettingsScreenTags.TITLE).semantics { heading() },
             )
         }
 
@@ -173,7 +176,8 @@ fun SettingsScreen(
 
         Button(
             onClick = onSave,
-            enabled = state.saveStatus != SaveStatus.Saving,
+            // The ViewModel ignores save/test until the stored settings have loaded, so do not offer a dead button.
+            enabled = state.loaded && state.saveStatus != SaveStatus.Saving,
             modifier = Modifier.fillMaxWidth().testTag(SettingsScreenTags.SAVE),
         ) {
             Text(stringResource(Res.string.settings_save))
@@ -188,7 +192,7 @@ fun SettingsScreen(
 
         OutlinedButton(
             onClick = onTestConnection,
-            enabled = state.connection != ConnectionTestState.Testing,
+            enabled = state.loaded && state.connection != ConnectionTestState.Testing,
             modifier = Modifier.fillMaxWidth().testTag(SettingsScreenTags.TEST_CONNECTION),
         ) {
             Text(stringResource(Res.string.settings_test_connection))

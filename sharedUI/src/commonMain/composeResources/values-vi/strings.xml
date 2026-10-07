@@ -28,8 +28,8 @@
     <string name="settings_provider_label">Nhà cung cấp</string>
     <string name="settings_provider_option">Tương thích %1$s</string>
     <string name="settings_api_key_label">Khóa API</string>
-    <string name="settings_show_key">Hiện</string>
-    <string name="settings_hide_key">Ẩn</string>
+    <string name="settings_show_key">Hiện khóa API</string>
+    <string name="settings_hide_key">Ẩn khóa API</string>
     <string name="settings_base_url_label">Base URL</string>
     <string name="settings_model_label">Model</string>
     <string name="settings_save">Lưu</string>
