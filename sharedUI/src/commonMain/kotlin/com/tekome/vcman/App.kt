@@ -22,8 +22,8 @@ import com.tekome.vcman.presentation.AnalysisFailure
 import com.tekome.vcman.presentation.AnalysisUiState
 import com.tekome.vcman.presentation.ScoreAnalysisViewModel
 import com.tekome.vcman.presentation.SettingsViewModel
-import com.tekome.vcman.ui.SettingsScreen
 import com.tekome.vcman.ui.ScoreReportScreen
+import com.tekome.vcman.ui.SettingsScreen
 import com.tekome.vcman.ui.SetupInput
 import com.tekome.vcman.ui.SetupScreen
 import com.tekome.vcman.ui.asText
