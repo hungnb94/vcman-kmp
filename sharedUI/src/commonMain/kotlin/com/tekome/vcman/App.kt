@@ -39,17 +39,18 @@ internal data object SettingsRoute
 @Composable
 fun App(
     settingsRepository: SettingsRepository,
-    viewModel: ScoreAnalysisViewModel = viewModel { ScoreAnalysisViewModel() },
+    viewModel: ScoreAnalysisViewModel = viewModel { ScoreAnalysisViewModel(settingsRepository) },
 ) {
     MaterialTheme {
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
         val language = rememberContentLanguage()
         AppContent(
             uiState = uiState,
-            onAnalyze = { title, text, subject, apiKey -> viewModel.analyze(title, text, subject, apiKey, language) },
+            onAnalyze = { title, text, subject -> viewModel.analyze(title, text, subject, language) },
             onAnalyzeAgain = viewModel::reset,
             settingsRepository = settingsRepository,
             modifier = Modifier.safeContentPadding(),
+            onOpenSettings = viewModel::clearError,
         )
     }
 }
@@ -57,10 +58,11 @@ fun App(
 @Composable
 internal fun AppContent(
     uiState: AnalysisUiState,
-    onAnalyze: (rubricTitle: String, rubricText: String, subject: String, apiKey: String) -> Unit,
+    onAnalyze: (rubricTitle: String, rubricText: String, subject: String) -> Unit,
     onAnalyzeAgain: () -> Unit,
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
+    onOpenSettings: () -> Unit = {},
     connectionTester: ConnectionTester = remember { LlmConnectionTester() },
 ) {
     val navController = rememberNavController()
@@ -81,7 +83,11 @@ internal fun AppContent(
                         loading = uiState.isLoading,
                         error = uiState.errorFailureOrNull?.asText(),
                         onAnalyze = onAnalyze,
-                        onOpenSettings = { navController.navigate(SettingsRoute) },
+                        onOpenSettings = {
+                            // The error (e.g. NotConfigured) is about to be fixed in Settings; don't show it stale on return.
+                            onOpenSettings()
+                            navController.navigate(SettingsRoute)
+                        },
                     )
                 }
 

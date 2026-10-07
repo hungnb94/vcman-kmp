@@ -14,7 +14,7 @@ class AnalysisFailureTest {
         val fields =
             listOf(
                 RequiredField(RequiredFieldId.RubricTitle, "Title"),
-                RequiredField(RequiredFieldId.ApiKey, "sk-secret"),
+                RequiredField(RequiredFieldId.RubricText, "secret text"),
             )
 
         assertNull(missingFieldsFailure(fields))
@@ -26,13 +26,13 @@ class AnalysisFailureTest {
             listOf(
                 RequiredField(RequiredFieldId.RubricTitle, "T"),
                 RequiredField(RequiredFieldId.Subject, "   "),
-                RequiredField(RequiredFieldId.ApiKey, "\t"),
+                RequiredField(RequiredFieldId.RubricText, "\t"),
             )
 
         val failure = missingFieldsFailure(fields)
 
         assertEquals(
-            AnalysisFailure.MissingFields(listOf(RequiredFieldId.Subject, RequiredFieldId.ApiKey)),
+            AnalysisFailure.MissingFields(listOf(RequiredFieldId.Subject, RequiredFieldId.RubricText)),
             failure,
         )
     }
@@ -46,10 +46,10 @@ class AnalysisFailureTest {
 
     @Test
     fun requiredField_toStringDoesNotExposeValue() {
-        val field = RequiredField(RequiredFieldId.ApiKey, "sk-super-secret")
+        val field = RequiredField(RequiredFieldId.RubricText, "sk-super-secret")
 
         assertFalse("sk-super-secret" in field.toString())
-        assertTrue("ApiKey" in field.toString())
+        assertTrue("RubricText" in field.toString())
     }
 
     @Test

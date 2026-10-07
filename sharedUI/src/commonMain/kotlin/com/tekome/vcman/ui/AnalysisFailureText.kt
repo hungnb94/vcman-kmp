@@ -11,8 +11,8 @@ import vcman.sharedui.generated.resources.error_api_status
 import vcman.sharedui.generated.resources.error_invalid_response
 import vcman.sharedui.generated.resources.error_missing_fields
 import vcman.sharedui.generated.resources.error_network
+import vcman.sharedui.generated.resources.error_not_configured
 import vcman.sharedui.generated.resources.error_unexpected
-import vcman.sharedui.generated.resources.setup_api_key_label
 import vcman.sharedui.generated.resources.setup_rubric_text_label
 import vcman.sharedui.generated.resources.setup_rubric_title_label
 import vcman.sharedui.generated.resources.setup_subject_label
@@ -22,6 +22,8 @@ internal fun AnalysisFailure.asText(): String =
     when (this) {
         is AnalysisFailure.MissingFields ->
             stringResource(Res.string.error_missing_fields, fields.map { it.label() }.joinToString(", "))
+
+        AnalysisFailure.NotConfigured -> stringResource(Res.string.error_not_configured)
 
         AnalysisFailure.Network -> stringResource(Res.string.error_network)
 
@@ -44,6 +46,5 @@ internal fun RequiredFieldId.label(): String =
             RequiredFieldId.RubricTitle -> Res.string.setup_rubric_title_label
             RequiredFieldId.RubricText -> Res.string.setup_rubric_text_label
             RequiredFieldId.Subject -> Res.string.setup_subject_label
-            RequiredFieldId.ApiKey -> Res.string.setup_api_key_label
         },
     )

@@ -4,7 +4,6 @@
     <string name="setup_rubric_text_label">Rubric content</string>
     <string name="setup_load_sample">Load sample rubric</string>
     <string name="setup_subject_label">Project / company / coin</string>
-    <string name="setup_api_key_label">API key</string>
     <string name="setup_open_settings">Settings</string>
     <string name="setup_analyze">Analyze</string>
     <string name="report_analyze_again">Analyze again</string>
@@ -24,6 +23,7 @@
     <string name="error_invalid_response">The AI returned a response we could not read. Please try again.</string>
     <string name="error_ambiguous_subject">The subject is ambiguous: %1$s</string>
     <string name="error_unexpected">Something went wrong. Please try again.</string>
+    <string name="error_not_configured">The AI connection is not set up. Open Settings to finish setting it up.</string>
     <string name="settings_title">Settings</string>
     <string name="settings_back">Back</string>
     <string name="settings_provider_label">Provider</string>

@@ -7,13 +7,15 @@ enum class RequiredFieldId {
     RubricTitle,
     RubricText,
     Subject,
-    ApiKey,
 }
 
 sealed interface AnalysisFailure {
     data class MissingFields(
         val fields: List<RequiredFieldId>,
     ) : AnalysisFailure
+
+    /** No usable saved LLM settings; the UI points the user to Settings. */
+    data object NotConfigured : AnalysisFailure
 
     data object Network : AnalysisFailure
 

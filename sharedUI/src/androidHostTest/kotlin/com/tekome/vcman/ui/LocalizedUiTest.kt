@@ -64,7 +64,7 @@ class LocalizedUiTest : ComposeUiTestRunner() {
             tag = rememberContentLanguage()
             AppContent(
                 uiState = AnalysisUiState.Error(AnalysisFailure.Api(401)),
-                onAnalyze = { _, _, _, _ -> },
+                onAnalyze = { _, _, _ -> },
                 onAnalyzeAgain = {},
                 settingsRepository = InMemorySettingsRepository(),
             )
