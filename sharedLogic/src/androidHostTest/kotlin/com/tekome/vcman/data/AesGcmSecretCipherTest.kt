@@ -117,6 +117,17 @@ class AesGcmSecretCipherTest {
     }
 
     @Test
+    fun encryptRegeneratesAnInvalidatedKey() {
+        listOf(InvalidKeyException("invalidated"), UnrecoverableKeyException("gone")).forEachIndexed { i, e ->
+            keys.failNextGetOrCreate = e
+            val encoded = cipher.encrypt("sk", "api_key")
+
+            assertEquals(i + 1, keys.deleteCount)
+            assertEquals("sk", cipher.decrypt(encoded, "api_key"))
+        }
+    }
+
+    @Test
     fun transientKeystoreFailuresAreSignalledNotTreatedAsLost() {
         val stored = cipher.encrypt("sk", "api_key")
 

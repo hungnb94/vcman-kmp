@@ -22,8 +22,8 @@ import com.tekome.vcman.presentation.AnalysisFailure
 import com.tekome.vcman.presentation.AnalysisUiState
 import com.tekome.vcman.presentation.ScoreAnalysisViewModel
 import com.tekome.vcman.presentation.SettingsViewModel
-import com.tekome.vcman.ui.SettingsScreen
 import com.tekome.vcman.ui.ScoreReportScreen
+import com.tekome.vcman.ui.SettingsScreen
 import com.tekome.vcman.ui.SetupInput
 import com.tekome.vcman.ui.SetupScreen
 import com.tekome.vcman.ui.asText
@@ -50,6 +50,7 @@ fun App(
             onAnalyzeAgain = viewModel::reset,
             settingsRepository = settingsRepository,
             modifier = Modifier.safeContentPadding(),
+            onOpenSettings = viewModel::clearError,
         )
     }
 }
@@ -61,6 +62,7 @@ internal fun AppContent(
     onAnalyzeAgain: () -> Unit,
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
+    onOpenSettings: () -> Unit = {},
     connectionTester: ConnectionTester = remember { LlmConnectionTester() },
 ) {
     val navController = rememberNavController()
@@ -81,7 +83,11 @@ internal fun AppContent(
                         loading = uiState.isLoading,
                         error = uiState.errorFailureOrNull?.asText(),
                         onAnalyze = onAnalyze,
-                        onOpenSettings = { navController.navigate(SettingsRoute) },
+                        onOpenSettings = {
+                            // The error (e.g. NotConfigured) is about to be fixed in Settings; don't show it stale on return.
+                            onOpenSettings()
+                            navController.navigate(SettingsRoute)
+                        },
                     )
                 }
 

@@ -5,8 +5,8 @@ import com.tekome.vcman.data.AnalysisException
 import com.tekome.vcman.data.FakeSettingsRepository
 import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.LlmRequestConfig
-import com.tekome.vcman.data.validSettings
 import com.tekome.vcman.data.ScoreAnalysisService
+import com.tekome.vcman.data.validSettings
 import com.tekome.vcman.domain.LanguageTag
 import com.tekome.vcman.domain.ProjectScoreReport
 import com.tekome.vcman.domain.RubricInput
@@ -285,6 +285,32 @@ class ScoreAnalysisViewModelTest {
             vm.reset()
 
             assertEquals(AnalysisUiState.Idle, vm.uiState.value)
+        }
+
+    @Test
+    fun clearError_fromErrorReturnsIdle() =
+        runTest {
+            val vm = ScoreAnalysisViewModel(FakeSettingsRepository(settings = null), service = FakeScoreAnalysisService())
+            vm.analyze("Title", "Rubric text", "Acme", VI)
+            assertEquals(AnalysisUiState.Error(AnalysisFailure.NotConfigured), vm.uiState.value)
+
+            vm.clearError()
+
+            assertEquals(AnalysisUiState.Idle, vm.uiState.value)
+        }
+
+    @Test
+    fun clearError_whileLoadingKeepsRequestRunning() =
+        runTest {
+            val service = FakeScoreAnalysisService()
+            val vm = ScoreAnalysisViewModel(FakeSettingsRepository(validSettings()), service = service)
+            vm.analyze("Title", "Rubric text", "Acme", VI)
+
+            vm.clearError()
+            assertEquals(AnalysisUiState.Loading, vm.uiState.value)
+            service.complete(Result.success(sampleReport()))
+
+            assertIs<AnalysisUiState.Success>(vm.uiState.value)
         }
 
     @Test

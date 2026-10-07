@@ -1,48 +1,45 @@
 package com.tekome.vcman.data
 
-import com.russhwolf.settings.Settings
+import com.russhwolf.settings.ExperimentalSettingsApi
+import com.russhwolf.settings.coroutines.SuspendSettings
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Single source of truth for the saved LLM connection. Storage access never blocks the caller's dispatcher. */
 interface SettingsRepository {
-    /** Saved settings, or `null` when nothing (valid) has been saved yet. A lost key comes back as a blank [ApiKey]. */
     suspend fun load(): LlmSettings?
 
-    /** Persists [settings]; throws if the secret cannot be stored, leaving the non-secret values untouched. */
     suspend fun save(settings: LlmSettings)
 }
 
-/** Platform-backed store for one secret value. Implementations return `null` when a value is missing or unreadable. */
 internal interface SecretStore {
-    fun get(name: String): String?
+    suspend fun get(name: String): String?
 
-    fun put(
+    suspend fun put(
         name: String,
         value: String,
     )
 
-    fun remove(name: String)
+    suspend fun remove(name: String)
 }
 
-/** [SecretStore] over a [Settings] whose backing store is already secure (e.g. the iOS Keychain). */
+@OptIn(ExperimentalSettingsApi::class)
 internal class SettingsSecretStore(
-    private val settings: Settings,
+    private val settings: SuspendSettings,
 ) : SecretStore {
-    override fun get(name: String): String? = settings.getStringOrNull(name)
+    override suspend fun get(name: String): String? = settings.getStringOrNull(name)
 
-    override fun put(
+    override suspend fun put(
         name: String,
         value: String,
     ) = settings.putString(name, value)
 
-    override fun remove(name: String) = settings.remove(name)
+    override suspend fun remove(name: String) = settings.remove(name)
 }
 
-/** Keeps provider/baseUrl/model in [prefs] and the API key in [secrets], so the key never lands in plain preferences. */
+@OptIn(ExperimentalSettingsApi::class)
 internal class StoredSettingsRepository(
-    private val prefs: Settings,
+    private val prefs: SuspendSettings,
     private val secrets: SecretStore,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : SettingsRepository {
@@ -59,8 +56,11 @@ internal class StoredSettingsRepository(
 
     override suspend fun save(settings: LlmSettings) =
         withContext(dispatcher) {
-            // Secret first: if it fails, the non-secret values stay consistent with the previous save.
-            secrets.put(SECRET_API_KEY, settings.apiKey.value)
+            if (settings.apiKey.value.isEmpty()) {
+                secrets.remove(SECRET_API_KEY)
+            } else {
+                secrets.put(SECRET_API_KEY, settings.apiKey.value)
+            }
             prefs.putString(KEY_PROVIDER_ID, settings.providerType.id)
             prefs.putString(KEY_BASE_URL, settings.baseUrl)
             prefs.putString(KEY_MODEL, settings.model)

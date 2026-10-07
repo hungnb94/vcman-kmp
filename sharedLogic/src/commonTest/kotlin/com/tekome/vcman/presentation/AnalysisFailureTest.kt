@@ -81,9 +81,4 @@ class AnalysisFailureTest {
         assertEquals(AnalysisFailure.Unexpected, failure)
         assertFalse("sk-123" in failure.toString())
     }
-
-    @Test
-    fun toFailure_notConfiguredExceptionMapsToNotConfigured() {
-        assertEquals(AnalysisFailure.NotConfigured, NotConfiguredException.toFailure())
-    }
 }

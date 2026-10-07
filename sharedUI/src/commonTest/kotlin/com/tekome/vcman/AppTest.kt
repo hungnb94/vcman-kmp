@@ -348,6 +348,44 @@ class AppWiringTest : ComposeUiTestRunner() {
         }
 
     @Test
+    fun validFields_withoutSavedSettings_showError_withoutCallingService() =
+        runComposeUiTest {
+            val repository = InMemorySettingsRepository()
+            val service = RecordingService(emptyList())
+            setContent {
+                App(repository, viewModel = ScoreAnalysisViewModel(repository, service))
+            }
+
+            fillRubric()
+            onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
+            waitForIdle()
+
+            onNodeWithTag(SetupScreenTags.LOADING).assertDoesNotExist()
+            onNodeWithTag(SetupScreenTags.ERROR).assertExists()
+            assertEquals(emptyList(), service.calls)
+        }
+
+    @Test
+    fun notConfiguredError_isClearedAfterVisitingSettings() =
+        runComposeUiTest {
+            val repository = InMemorySettingsRepository()
+            setContent {
+                App(repository, viewModel = ScoreAnalysisViewModel(repository, RecordingService(emptyList())))
+            }
+            fillRubric()
+            onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
+            waitForIdle()
+            onNodeWithTag(SetupScreenTags.ERROR).assertExists()
+
+            onNodeWithTag(SetupScreenTags.OPEN_SETTINGS).performScrollTo().performClick()
+            waitForIdle()
+            onNodeWithTag(SettingsScreenTags.BACK).performClick()
+            waitForIdle()
+
+            onNodeWithTag(SetupScreenTags.ERROR).assertDoesNotExist()
+        }
+
+    @Test
     fun settings_openAndBack_keepsRubricAndSubject() =
         runComposeUiTest {
             val repository = InMemorySettingsRepository()

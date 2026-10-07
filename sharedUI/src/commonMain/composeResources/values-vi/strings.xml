@@ -23,14 +23,14 @@
     <string name="error_invalid_response">AI trả về phản hồi không đọc được. Vui lòng thử lại.</string>
     <string name="error_ambiguous_subject">Đối tượng chưa rõ ràng: %1$s</string>
     <string name="error_unexpected">Đã xảy ra lỗi. Vui lòng thử lại.</string>
-    <string name="error_not_configured">Chưa cấu hình kết nối AI. Mở Cài đặt để nhập khóa API.</string>
+    <string name="error_not_configured">Chưa cấu hình kết nối AI. Mở Cài đặt để hoàn tất cấu hình.</string>
     <string name="settings_title">Cài đặt</string>
     <string name="settings_back">Quay lại</string>
     <string name="settings_provider_label">Nhà cung cấp</string>
     <string name="settings_provider_option">Tương thích %1$s</string>
     <string name="settings_api_key_label">Khóa API</string>
-    <string name="settings_show_key">Hiện</string>
-    <string name="settings_hide_key">Ẩn</string>
+    <string name="settings_show_key">Hiện khóa API</string>
+    <string name="settings_hide_key">Ẩn khóa API</string>
     <string name="settings_base_url_label">Base URL</string>
     <string name="settings_model_label">Model</string>
     <string name="settings_save">Lưu</string>

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -29,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.password
 import androidx.compose.ui.semantics.semantics
@@ -90,7 +92,6 @@ fun SettingsScreen(
     onTestConnection: () -> Unit,
     onBack: () -> Unit,
 ) {
-    // Only the visibility flag survives configuration changes; the key itself never enters saved state.
     var keyVisible by rememberSaveable { mutableStateOf(false) }
     val form = state.form
 
@@ -98,6 +99,7 @@ fun SettingsScreen(
         modifier =
             modifier
                 .fillMaxSize()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -109,11 +111,14 @@ fun SettingsScreen(
             Text(
                 text = stringResource(Res.string.settings_title),
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.testTag(SettingsScreenTags.TITLE),
+                modifier = Modifier.testTag(SettingsScreenTags.TITLE).semantics { heading() },
             )
         }
 
-        Text(stringResource(Res.string.settings_provider_label), style = MaterialTheme.typography.titleSmall)
+        Text(
+            stringResource(Res.string.settings_provider_label),
+            style = MaterialTheme.typography.titleSmall,
+        )
         Column(modifier = Modifier.selectableGroup()) {
             LlmProviderType.entries.forEach { type ->
                 val selected = type == form.providerType
@@ -121,8 +126,11 @@ fun SettingsScreen(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .selectable(selected = selected, role = Role.RadioButton, onClick = { onSelectProvider(type) })
-                            .testTag(SettingsScreenTags.provider(type)),
+                            .selectable(
+                                selected = selected,
+                                role = Role.RadioButton,
+                                onClick = { onSelectProvider(type) },
+                            ).testTag(SettingsScreenTags.provider(type)),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     RadioButton(selected = selected, onClick = null)
@@ -173,37 +181,56 @@ fun SettingsScreen(
 
         Button(
             onClick = onSave,
-            enabled = state.saveStatus != SaveStatus.Saving,
+            enabled = state.loaded && state.saveStatus != SaveStatus.Saving,
             modifier = Modifier.fillMaxWidth().testTag(SettingsScreenTags.SAVE),
         ) {
             Text(stringResource(Res.string.settings_save))
         }
         when (state.saveStatus) {
-            SaveStatus.Saved -> StatusText(stringResource(Res.string.settings_saved), SettingsScreenTags.SAVE_STATUS)
-            SaveStatus.Failed ->
-                StatusText(stringResource(Res.string.settings_save_failed), SettingsScreenTags.SAVE_STATUS, isError = true)
+            SaveStatus.Saved -> {
+                StatusText(
+                    stringResource(Res.string.settings_saved),
+                    SettingsScreenTags.SAVE_STATUS,
+                )
+            }
 
-            SaveStatus.Idle, SaveStatus.Saving -> Unit
+            SaveStatus.Failed -> {
+                StatusText(
+                    stringResource(Res.string.settings_save_failed),
+                    SettingsScreenTags.SAVE_STATUS,
+                    isError = true,
+                )
+            }
+
+            SaveStatus.Idle, SaveStatus.Saving -> {
+            }
         }
 
         OutlinedButton(
             onClick = onTestConnection,
-            enabled = state.connection != ConnectionTestState.Testing,
+            enabled = state.loaded && state.connection != ConnectionTestState.Testing,
             modifier = Modifier.fillMaxWidth().testTag(SettingsScreenTags.TEST_CONNECTION),
         ) {
             Text(stringResource(Res.string.settings_test_connection))
         }
         when (val connection = state.connection) {
-            ConnectionTestState.Idle -> Unit
-            ConnectionTestState.Testing ->
-                StatusText(stringResource(Res.string.settings_connection_testing), SettingsScreenTags.CONNECTION_STATUS)
+            ConnectionTestState.Idle -> {
+            }
 
-            is ConnectionTestState.Done ->
+            ConnectionTestState.Testing -> {
+                StatusText(
+                    stringResource(Res.string.settings_connection_testing),
+                    SettingsScreenTags.CONNECTION_STATUS,
+                )
+            }
+
+            is ConnectionTestState.Done -> {
                 StatusText(
                     text = connection.result.asText(),
                     tag = SettingsScreenTags.CONNECTION_STATUS,
                     isError = connection.result != ConnectionTestResult.Success,
                 )
+            }
         }
     }
 }
@@ -221,7 +248,6 @@ private fun SettingsTextField(
     keyboardType: KeyboardType = KeyboardType.Text,
 ) {
     val errors = state.errors.filter { it.field == field }
-    // Recreate the field when masking flips: Compose keeps the old password semantics on an updated text field.
     key(masked) {
         OutlinedTextField(
             value = value,

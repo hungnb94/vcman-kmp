@@ -23,14 +23,14 @@
     <string name="error_invalid_response">The AI returned a response we could not read. Please try again.</string>
     <string name="error_ambiguous_subject">The subject is ambiguous: %1$s</string>
     <string name="error_unexpected">Something went wrong. Please try again.</string>
-    <string name="error_not_configured">The AI connection is not set up. Open Settings to add your API key.</string>
+    <string name="error_not_configured">The AI connection is not set up. Open Settings to finish setting it up.</string>
     <string name="settings_title">Settings</string>
     <string name="settings_back">Back</string>
     <string name="settings_provider_label">Provider</string>
     <string name="settings_provider_option">%1$s-compatible</string>
     <string name="settings_api_key_label">API key</string>
-    <string name="settings_show_key">Show</string>
-    <string name="settings_hide_key">Hide</string>
+    <string name="settings_show_key">Show API key</string>
+    <string name="settings_hide_key">Hide API key</string>
     <string name="settings_base_url_label">Base URL</string>
     <string name="settings_model_label">Model</string>
     <string name="settings_save">Save</string>

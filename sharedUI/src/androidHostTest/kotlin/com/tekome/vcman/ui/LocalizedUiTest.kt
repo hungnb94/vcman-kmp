@@ -195,7 +195,7 @@ class LocalizedUiTest : ComposeUiTestRunner() {
             waitForIdle()
 
             onNodeWithTag(SetupScreenTags.ERROR)
-                .assertTextEquals("Chưa cấu hình kết nối AI. Mở Cài đặt để nhập khóa API.")
+                .assertTextEquals("Chưa cấu hình kết nối AI. Mở Cài đặt để hoàn tất cấu hình.")
             onNodeWithTag(SetupScreenTags.OPEN_SETTINGS).assertTextEquals("Cài đặt")
         }
 
@@ -214,7 +214,7 @@ class LocalizedUiTest : ComposeUiTestRunner() {
             waitForIdle()
 
             onNodeWithTag(SetupScreenTags.ERROR)
-                .assertTextEquals("The AI connection is not set up. Open Settings to add your API key.")
+                .assertTextEquals("The AI connection is not set up. Open Settings to finish setting it up.")
             onNodeWithTag(SetupScreenTags.OPEN_SETTINGS).assertTextEquals("Settings")
         }
 }

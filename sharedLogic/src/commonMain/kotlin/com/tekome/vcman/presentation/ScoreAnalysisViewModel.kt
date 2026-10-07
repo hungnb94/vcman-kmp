@@ -53,27 +53,35 @@ class ScoreAnalysisViewModel(
         val thisRequestId = ++requestId
         analyzeJob =
             viewModelScope.launch {
-                val result =
+                val newState =
                     try {
                         val settings = settingsRepository.load()?.takeIf { it.validate().isEmpty() }
                         if (settings == null) {
-                            Result.failure(NotConfiguredException)
+                            AnalysisUiState.Error(AnalysisFailure.NotConfigured)
                         } else {
-                            service.analyze(rubric, subjectQuery, LlmRequestConfig(settings, searchTool = null), outputLanguage)
+                            service
+                                .analyze(rubric, subjectQuery, LlmRequestConfig(settings, searchTool = null), outputLanguage)
+                                .fold(
+                                    onSuccess = { AnalysisUiState.Success(it) },
+                                    onFailure = { AnalysisUiState.Error(it.toFailure()) },
+                                )
                         }
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        Result.failure(e)
+                        AnalysisUiState.Error(e.toFailure())
                     }
                 if (thisRequestId == requestId) {
-                    _uiState.value =
-                        result.fold(
-                            onSuccess = { AnalysisUiState.Success(it) },
-                            onFailure = { AnalysisUiState.Error(it.toFailure()) },
-                        )
+                    _uiState.value = newState
                 }
             }
+    }
+
+    /** Drops a shown error (e.g. before the user fixes it in Settings); leaves Loading/Success untouched. */
+    fun clearError() {
+        if (_uiState.value is AnalysisUiState.Error) {
+            _uiState.value = AnalysisUiState.Idle
+        }
     }
 
     fun reset() {
