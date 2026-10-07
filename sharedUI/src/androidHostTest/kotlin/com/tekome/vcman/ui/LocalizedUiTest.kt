@@ -4,9 +4,15 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.v2.runComposeUiTest
 import com.tekome.vcman.AppContent
+import com.tekome.vcman.data.ConnectionTestResult
+import com.tekome.vcman.data.LlmProviderType
+import com.tekome.vcman.data.SettingsFieldError
+import com.tekome.vcman.presentation.ConnectionTestState
+import com.tekome.vcman.presentation.SettingsUiState
 import com.tekome.vcman.domain.LanguageTag
 import com.tekome.vcman.domain.ProjectScoreReport
 import com.tekome.vcman.domain.QuestionScoreResult
@@ -124,5 +130,51 @@ class LocalizedUiTest : ComposeUiTestRunner() {
             onNodeWithTag(SetupScreenTags.ANALYZE).assertTextEquals("Analyze")
             onNodeWithTag(SetupScreenTags.ERROR).assertTextEquals("The AI service rejected the request (HTTP 401).")
             assertEquals("en", language().value)
+        }
+
+    private fun androidx.compose.ui.test.ComposeUiTest.showSettings(state: SettingsUiState) {
+        setContent {
+            SettingsScreen(
+                state = state,
+                onSelectProvider = {},
+                onApiKeyChange = {},
+                onBaseUrlChange = {},
+                onModelChange = {},
+                onSave = {},
+                onTestConnection = {},
+                onBack = {},
+            )
+        }
+        waitForIdle()
+    }
+
+    @Test
+    @Config(qualifiers = "vi")
+    fun vietnamese_settingsUsesVietnameseText() =
+        runComposeUiTest {
+            showSettings(
+                SettingsUiState(
+                    loaded = true,
+                    errors = SettingsFieldError.entries.toSet(),
+                    connection = ConnectionTestState.Done(ConnectionTestResult.Unauthorized),
+                ),
+            )
+
+            onNodeWithTag(SettingsScreenTags.TITLE).assertTextEquals("Cài đặt")
+            onNodeWithTag(SettingsScreenTags.provider(LlmProviderType.OpenAICompatible)).assertTextEquals("Tương thích OpenAI")
+            onNodeWithTag(SettingsScreenTags.ERROR_PREFIX + SettingsFieldError.ApiKeyBlank.name, useUnmergedTree = true)
+                .assertTextEquals("Hãy nhập khóa API.")
+            onNodeWithTag(SettingsScreenTags.CONNECTION_STATUS).performScrollTo().assertTextEquals("Khóa API bị từ chối.")
+        }
+
+    @Test
+    @Config(qualifiers = "en")
+    fun english_settingsUsesEnglishText() =
+        runComposeUiTest {
+            showSettings(SettingsUiState(loaded = true, errors = setOf(SettingsFieldError.ApiKeyBlank)))
+
+            onNodeWithTag(SettingsScreenTags.TITLE).assertTextEquals("Settings")
+            onNodeWithTag(SettingsScreenTags.provider(LlmProviderType.OpenAICompatible)).assertTextEquals("OpenAI-compatible")
+            onNodeWithTag(SettingsScreenTags.ERROR_PREFIX + SettingsFieldError.ApiKeyBlank.name, useUnmergedTree = true).assertTextEquals("Enter an API key.")
         }
 }
