@@ -1,5 +1,8 @@
 package com.tekome.vcman
 
 import androidx.compose.ui.window.ComposeUIViewController
+import com.tekome.vcman.data.createSettingsRepository
 
-fun MainViewController() = ComposeUIViewController { App() }
+private val settingsRepository by lazy { createSettingsRepository() }
+
+fun MainViewController() = ComposeUIViewController { App(settingsRepository) }
