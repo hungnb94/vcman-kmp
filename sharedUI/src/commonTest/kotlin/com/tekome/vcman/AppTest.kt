@@ -329,6 +329,24 @@ class AppWiringTest : ComposeUiTestRunner() {
         }
 
     @Test
+    fun validFields_withoutSavedSettings_showError_withoutCallingService() =
+        runComposeUiTest {
+            val repository = InMemorySettingsRepository()
+            val service = RecordingService(emptyList())
+            setContent {
+                App(repository, viewModel = ScoreAnalysisViewModel(repository, service))
+            }
+
+            fillRubric()
+            onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
+            waitForIdle()
+
+            onNodeWithTag(SetupScreenTags.LOADING).assertDoesNotExist()
+            onNodeWithTag(SetupScreenTags.ERROR).assertExists()
+            assertEquals(emptyList(), service.calls)
+        }
+
+    @Test
     fun settings_openAndBack_keepsRubricAndSubject() =
         runComposeUiTest {
             val repository = InMemorySettingsRepository()

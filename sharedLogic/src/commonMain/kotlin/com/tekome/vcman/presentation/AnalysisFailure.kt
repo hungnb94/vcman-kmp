@@ -44,14 +44,7 @@ internal fun missingFieldsFailure(fields: List<RequiredField>): AnalysisFailure.
     return if (missing.isEmpty()) null else AnalysisFailure.MissingFields(missing)
 }
 
-internal object NotConfiguredException : Exception("LLM settings are not configured")
-
-internal fun Throwable.toFailure(): AnalysisFailure =
-    when (this) {
-        is NotConfiguredException -> AnalysisFailure.NotConfigured
-        is AnalysisException -> error.toFailure()
-        else -> AnalysisFailure.Unexpected
-    }
+internal fun Throwable.toFailure(): AnalysisFailure = (this as? AnalysisException)?.error?.toFailure() ?: AnalysisFailure.Unexpected
 
 internal fun AnalysisError.toFailure(): AnalysisFailure =
     when (this) {

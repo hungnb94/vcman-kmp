@@ -5,8 +5,8 @@ import com.tekome.vcman.data.AnalysisException
 import com.tekome.vcman.data.FakeSettingsRepository
 import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.LlmRequestConfig
-import com.tekome.vcman.data.validSettings
 import com.tekome.vcman.data.ScoreAnalysisService
+import com.tekome.vcman.data.validSettings
 import com.tekome.vcman.domain.LanguageTag
 import com.tekome.vcman.domain.ProjectScoreReport
 import com.tekome.vcman.domain.RubricInput
