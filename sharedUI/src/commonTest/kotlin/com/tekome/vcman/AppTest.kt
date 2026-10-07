@@ -347,6 +347,26 @@ class AppWiringTest : ComposeUiTestRunner() {
         }
 
     @Test
+    fun notConfiguredError_isClearedAfterVisitingSettings() =
+        runComposeUiTest {
+            val repository = InMemorySettingsRepository()
+            setContent {
+                App(repository, viewModel = ScoreAnalysisViewModel(repository, RecordingService(emptyList())))
+            }
+            fillRubric()
+            onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
+            waitForIdle()
+            onNodeWithTag(SetupScreenTags.ERROR).assertExists()
+
+            onNodeWithTag(SetupScreenTags.OPEN_SETTINGS).performScrollTo().performClick()
+            waitForIdle()
+            onNodeWithTag(SettingsScreenTags.BACK).performClick()
+            waitForIdle()
+
+            onNodeWithTag(SetupScreenTags.ERROR).assertDoesNotExist()
+        }
+
+    @Test
     fun settings_openAndBack_keepsRubricAndSubject() =
         runComposeUiTest {
             val repository = InMemorySettingsRepository()

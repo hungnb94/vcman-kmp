@@ -77,6 +77,13 @@ class ScoreAnalysisViewModel(
             }
     }
 
+    /** Drops a shown error (e.g. before the user fixes it in Settings); leaves Loading/Success untouched. */
+    fun clearError() {
+        if (_uiState.value is AnalysisUiState.Error) {
+            _uiState.value = AnalysisUiState.Idle
+        }
+    }
+
     fun reset() {
         requestId++
         analyzeJob?.cancel()
