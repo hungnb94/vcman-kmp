@@ -179,4 +179,42 @@ class LocalizedUiTest : ComposeUiTestRunner() {
             onNodeWithTag(SettingsScreenTags.provider(LlmProviderType.OpenAICompatible)).assertTextEquals("OpenAI-compatible")
             onNodeWithTag(SettingsScreenTags.ERROR_PREFIX + SettingsFieldError.ApiKeyBlank.name, useUnmergedTree = true).assertTextEquals("Enter an API key.")
         }
+
+    @Test
+    @Config(qualifiers = "vi")
+    fun vietnamese_notConfiguredErrorPointsToSettings() =
+        runComposeUiTest {
+            setContent {
+                AppContent(
+                    uiState = AnalysisUiState.Error(AnalysisFailure.NotConfigured),
+                    onAnalyze = { _, _, _ -> },
+                    onAnalyzeAgain = {},
+                    settingsRepository = InMemorySettingsRepository(),
+                )
+            }
+            waitForIdle()
+
+            onNodeWithTag(SetupScreenTags.ERROR)
+                .assertTextEquals("Chưa cấu hình kết nối AI. Mở Cài đặt để hoàn tất cấu hình.")
+            onNodeWithTag(SetupScreenTags.OPEN_SETTINGS).assertTextEquals("Cài đặt")
+        }
+
+    @Test
+    @Config(qualifiers = "en")
+    fun english_notConfiguredErrorPointsToSettings() =
+        runComposeUiTest {
+            setContent {
+                AppContent(
+                    uiState = AnalysisUiState.Error(AnalysisFailure.NotConfigured),
+                    onAnalyze = { _, _, _ -> },
+                    onAnalyzeAgain = {},
+                    settingsRepository = InMemorySettingsRepository(),
+                )
+            }
+            waitForIdle()
+
+            onNodeWithTag(SetupScreenTags.ERROR)
+                .assertTextEquals("The AI connection is not set up. Open Settings to finish setting it up.")
+            onNodeWithTag(SetupScreenTags.OPEN_SETTINGS).assertTextEquals("Settings")
+        }
 }
