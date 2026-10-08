@@ -1,5 +1,6 @@
 package com.tekome.vcman.ui
 
+import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
@@ -219,7 +220,7 @@ class LocalizedUiTest : ComposeUiTestRunner() {
             onNodeWithTag(SetupScreenTags.OPEN_SETTINGS).assertTextEquals("Settings")
         }
 
-    private fun androidx.compose.ui.test.ComposeUiTest.showAmbiguous(explanation: String) {
+    private fun ComposeUiTest.showAmbiguous(explanation: String) {
         setContent {
             AppContent(
                 uiState = AnalysisUiState.Error(AnalysisFailure.AmbiguousSubject(explanation)),
@@ -238,8 +239,10 @@ class LocalizedUiTest : ComposeUiTestRunner() {
             showAmbiguous("Candidates: A, B")
 
             onNodeWithTag(SetupScreenTags.CLARIFICATION).assertTextContains("Please clarify the subject")
-            onNodeWithTag(SetupScreenTags.CLARIFICATION).assertTextContains("add details such as the chain", substring = true, ignoreCase = true)
-            onNodeWithTag(SetupScreenTags.CLARIFICATION_DETAIL, useUnmergedTree = true).assertTextEquals("Candidates: A, B")
+            onNodeWithTag(SetupScreenTags.CLARIFICATION)
+                .assertTextContains("add details such as the chain", substring = true, ignoreCase = true)
+            onNodeWithTag(SetupScreenTags.CLARIFICATION_DETAIL, useUnmergedTree = true)
+                .assertTextEquals("Candidates: A, B")
         }
 
     @Test
@@ -250,7 +253,8 @@ class LocalizedUiTest : ComposeUiTestRunner() {
 
             onNodeWithTag(SetupScreenTags.CLARIFICATION).assertTextContains("Vui lòng làm rõ đối tượng")
             onNodeWithTag(SetupScreenTags.CLARIFICATION).assertTextContains("Hãy bổ sung chi tiết", substring = true)
-            onNodeWithTag(SetupScreenTags.CLARIFICATION_DETAIL, useUnmergedTree = true).assertTextEquals("Ứng viên: A, B")
+            onNodeWithTag(SetupScreenTags.CLARIFICATION_DETAIL, useUnmergedTree = true)
+                .assertTextEquals("Ứng viên: A, B")
         }
 
     @Test
