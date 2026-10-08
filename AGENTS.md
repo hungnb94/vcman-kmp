@@ -1,203 +1,239 @@
 # Vcman — AGENTS.md
 
-Reference for AI agents and developers working in this repo. Read `## Boundaries` before making changes.
+Guide for AI agents and developers working in this repo. Read **Boundaries** before changing anything.
 
-## Project overview
+**Precedence:** this file (plus `CLAUDE.md` / `docs/adr/` if added later) > the official Kotlin Multiplatform guidance linked in **References** > general community practice. When code and this file disagree, fix the file — and for versions, `gradle/libs.versions.toml` always wins.
 
-- Kotlin Multiplatform project, root project name `Vcman`, namespace `com.tekome.vcman`.
-- Targets: Android, iOS, Web.
-- **Status: wizard boilerplate.** No real business logic yet — only sample code (`Greeting.kt`, `Platform.kt`, `App.kt`). Do not assume any feature exists beyond this sample code.
-- Web UI is a plain **React** app (TypeScript + Vite), not Compose for Web/Wasm. It consumes the Kotlin/JS output of `sharedLogic`.
+## Contents
 
-## Tech stack (current)
+1. [Quick reference](#1-quick-reference)
+2. [Boundaries](#2-boundaries)
+3. [Project overview](#3-project-overview)
+4. [Architecture](#4-architecture)
+5. [Coding conventions](#5-coding-conventions)
+6. [Testing](#6-testing)
+7. [Feature: LLM settings and API key](#7-feature-llm-settings-and-api-key)
+8. [Feature: localization (i18n)](#8-feature-localization-i18n)
+9. [Tech stack](#9-tech-stack)
+10. [Roadmap: limitations and modernization backlog](#10-roadmap-limitations-and-modernization-backlog)
+11. [References](#11-references)
+
+## 1. Quick reference
+
+| Task | Command |
+|---|---|
+| Check toolchain | `./gradlew --version` (no local Gradle/JDK install needed) |
+| Build Android | `./gradlew :androidApp:assembleDebug` |
+| Run web | `npm install && npm run start` (builds `sharedLogic` JS, then Vite dev server) |
+| Run iOS | Open `iosApp/` in Xcode and run (macOS + Xcode; simulator needs Apple Silicon) |
+| Test Android/JVM | `./gradlew :sharedUI:testAndroidHostTest :sharedLogic:testAndroidHostTest` |
+| Test web | `./gradlew :sharedLogic:jsTest` |
+| Test iOS | `./gradlew :sharedUI:iosSimulatorArm64Test :sharedLogic:iosSimulatorArm64Test` |
+| Test everything (macOS) | `./gradlew allTests` |
+| Resolved version of a dependency | `./gradlew :sharedLogic:dependencyInsight --configuration androidRuntimeClasspath --dependency <name>` |
+
+- Node.js (includes npm) is required for the web app: https://nodejs.org/en/download
+- The Android SDK path goes in `local.properties` (`sdk.dir=...`), which is never committed.
+- CI (`.github/workflows/ci.yml`) runs the three test rows above as independent jobs `android-jvm`, `js` and `ios` on every PR to `main` and every push to `main`. `android-jvm` and `ios` pass `--continue`. A job's `name:` is its PR status-check name, so check branch protection before renaming one.
+
+## 2. Boundaries
+
+**Always**
+- Use the `./gradlew` wrapper.
+- Declare every JVM/Kotlin dependency in `gradle/libs.versions.toml` and reference it as `libs.*`.
+- Keep `sharedLogic` compiling for all three targets (`android`, `ios*`, `js`).
+- Run the tests for every target you touched before reporting work as done.
+- Update **Tech stack** when you change a version in the catalog, and **Roadmap** when you install or drop something listed there.
+
+**Ask first**
+- Adding any library, plugin or dependency, including anything in **Roadmap**.
+- Adding a Gradle module, a target (`wasmJs`, `jvm`/desktop, …) or a CI workflow.
+- Restructuring packages or moving files between modules.
+
+**Never**
+- Change `kotlin`, `agp`, `composeMultiplatform`, `material3` or SDK versions on your own.
+- Hard-code a version in a `build.gradle.kts`.
+- Edit or delete `README.md` (its Desktop/`jvmMain` mention is wizard leftover — there is no `jvm` target).
+- Commit `local.properties`, `.idea/`, `node_modules/` or any `build/` directory.
+- Put platform APIs (`android.*`, `platform.*`, `java.*` outside the stdlib) in `commonMain`.
+- Hard-code an API key anywhere (source, resources, `BuildConfig`, `Info.plist`).
+- Assume a **Roadmap** item exists in the code.
+
+## 3. Project overview
+
+Kotlin Multiplatform app (root project `Vcman`, package root `com.tekome.vcman`) for Android, iOS and Web.
+
+**Status: POC.** One feature exists, on Android and iOS only: LLM score analysis — enter a rubric and a subject in `SetupScreen`, get a `ScoreReportScreen` — plus a Settings screen for the LLM provider, model and API key (issues #4, #6, #7, #11, #40). `webApp` is still the wizard `Greeting` sample. Nothing else exists; see **Roadmap**.
+
+| Path | Kind | Role | Targets | Depends on |
+|---|---|---|---|---|
+| `sharedLogic` | Gradle module | Pure-Kotlin business logic, ViewModels included | `android`, `iosArm64`, `iosSimulatorArm64`, `js` (browser library + TypeScript definitions) | — |
+| `sharedUI` | Gradle module | Compose Multiplatform UI for Android and iOS | `android`, `iosArm64`, `iosSimulatorArm64` (static framework `SharedUI`); **no `js`** | `sharedLogic` (`api`) |
+| `androidApp` | Gradle module | Android entry point (`MainActivity`) | — | `sharedUI` |
+| `iosApp` | Xcode project, not Gradle | SwiftUI entry point; hosts `MainViewController()` from `sharedUI` `iosMain` | — | `SharedUI` framework |
+| `webApp` | npm workspace, not Gradle | React + TypeScript + Vite (not Compose for Web) | — | `sharedLogic` Kotlin/JS output |
+
+`settings.gradle.kts` includes only `:androidApp`, `:sharedLogic` and `:sharedUI`. Build `iosApp` with Xcode and `webApp` with npm.
+
+**Source sets.** `sharedLogic`: `commonMain`, `androidMain`, `iosMain`, `jsMain`, `commonTest`, `androidHostTest`, `iosTest`, `webTest`. `sharedUI`: `commonMain`, `iosMain`, `commonTest`, `androidHostTest`, `iosTest`. iOS code goes in the intermediate `iosMain`/`iosTest` created by the default hierarchy template — never in `iosArm64Main`/`iosSimulatorArm64Main`.
+
+## 4. Architecture
+
+**Layers.** Dependencies point one way: `androidApp`/`iosApp` → `sharedUI` → `sharedLogic`; `webApp` → `sharedLogic`. Inside `sharedLogic/commonMain`, layer by **package**, not by Gradle module (the codebase is too small for more modules):
+
+| Package | Holds | Examples |
+|---|---|---|
+| `domain` | Pure models, no I/O | `ScoreModels.kt`, `LanguageTag` |
+| `data` | I/O, LLM/search clients, storage, prompt building | `ScoreAnalysisService`, `SettingsRepository`, `KoogLlmChats.kt`, `FirecrawlSearchTool` |
+| `presentation` | One `ViewModel` per screen + typed UI state | `ScoreAnalysisViewModel`, `SettingsViewModel`, `AnalysisUiState` |
+
+`sharedUI` (`com.tekome.vcman.ui`) holds stateless Composables only.
+
+**MVVM / unidirectional data flow.** ViewModels live in `sharedLogic` `presentation` (AndroidX Lifecycle KMP `ViewModel`) and expose `StateFlow`; Composables collect it and forward events. Composables own no business logic. This follows Google's architecture guidance, with Hilt replaced by manual wiring until a KMP DI library is added.
+
+**Navigation.** Navigation Compose with type-safe routes `HomeRoute` and `SettingsRoute` in `App.kt`. `SetupInput` is hoisted above the `NavHost` so it survives a trip to Settings. `ScoreAnalysisViewModel` is created in `App`, outside the `NavHost`, so an in-flight analysis is kept. `SettingsViewModel` is scoped to its back-stack entry, so unsaved edits are dropped on Back.
+
+**Wiring (no DI yet).** Dependencies are created at the entry point and passed down — e.g. `createSettingsRepository(context)` in `MainActivity`, `createSettingsRepository()` in `MainViewController`. Entry points stay thin: wiring and bootstrap only.
+
+**`expect`/`actual` vs interface.**
+- `expect`/`actual` for small, stateless platform facts or platform singletons, where the compiler must force every target to implement it (e.g. `Platform.kt`). Factories whose signatures differ per platform are plain per-platform functions instead (e.g. `createSettingsRepository(context)` in `androidMain`, `createSettingsRepository()` in `iosMain`).
+- A `commonMain` interface with per-platform implementations for anything with state, logic or a need to be faked in tests (e.g. `SettingsRepository`, `WebSearchTool`, `LlmChat`; `SecretKeyProvider` is the same idea inside `androidMain`). Do not mix both mechanisms for the same concern.
+
+**Coroutines.** Inject `CoroutineDispatcher` through the constructor with a default (see `StoredSettingsRepository`); never hard-code `Dispatchers.*` inside a function body. Rethrow `CancellationException` — never swallow it in a `catch (e: Exception)`. Work runs in `viewModelScope`; no `GlobalScope`.
+
+## 5. Coding conventions
+
+- `kotlin.code.style=official` (4-space indent), set in `gradle.properties`.
+- Kotlin packages: `com.tekome.vcman` + `.domain` / `.data` / `.presentation` / `.ui`. The Android namespaces `com.tekome.vcman.sharedLogic` / `.sharedUI` are only for generated `R`/resources — not Kotlin packages.
+- `expect`/`actual` file names: `Xxx.kt` + `Xxx.android.kt` / `Xxx.ios.kt` / `Xxx.js.kt`.
+- Composables: PascalCase; `modifier: Modifier = Modifier` is the first optional parameter.
+- JVM target is 11 in every Kotlin/Android module — no Java APIs newer than 11.
+- **Koog + JVM 11:** Koog's Android artifacts are JVM 17 bytecode. Calling a Koog `inline reified` function (e.g. `typeToken<T>()`) inlines that bytecode into our JVM 11 code and fails to compile; use the non-inline overload (`typeToken(typeOf<T>())`), as in `KoogLlmChats.kt`.
+- Secrets use the `ApiKey` type everywhere so `toString()` never prints them; never put them in `rememberSaveable` or logs.
+- `webApp`: function components, `.tsx` files, CSS next to its component.
+
+## 6. Testing
+
+| Source set | Runs on | Gradle task | Use for |
+|---|---|---|---|
+| `commonTest` | every target | (part of each task below) | Shared logic and locale-independent UI tests (`kotlin.test`, `runTest`, `runComposeUiTest`) |
+| `androidHostTest` | host JVM (Robolectric for UI) | `testAndroidHostTest` | Android-only code, exact-text locale tests, crypto with a software key |
+| `iosTest` | iOS simulator | `iosSimulatorArm64Test` | iOS-only code |
+| `webTest` | browser JS | `jsTest` | JS-only code |
+
+- **Fakes, not mocks.** Hand-written fakes of the `commonMain` interfaces (plus `MapSettings` and Ktor `MockEngine`); JVM-only mocking libraries do not run on Native/JS and must not be added.
+- Coroutine tests use `runTest` and inject a `TestDispatcher`.
+- Things that cannot run in tests need a manual check on a real device: Android Keystore and iOS Keychain persistence (kill the app, reopen, settings are still there).
+
+## 7. Feature: LLM settings and API key
+
+- **Where:** `sharedLogic` `data` (`LlmProviderType`, `LlmSettings`, `SettingsRepository`, `ConnectionTester`, `KoogLlmChats.kt`) and `presentation` (`SettingsViewModel`); UI in `sharedUI/ui/SettingsScreen.kt` + `SettingsText.kt`. `LlmProviderType` lives in `data` because it carries the Koog client builder.
+- **Add a provider = one enum entry** in `LlmProviderType` (`id`, `brand`, `defaultBaseUrl`, `defaultModel`, `createChat`) plus one `xxxCompatibleChat(settings, httpClientFactory)` builder in `KoogLlmChats.kt`. Everything else (Settings list, defaults, validation, storage, connection test, analysis) iterates `LlmProviderType.entries`. Never branch on a specific provider elsewhere. A persisted `id` never changes.
+- **Base URL / path:** stored as typed (trimmed, trailing `/` removed). Koog appends the request path after the URL's own path: `openAiChatPath` sends `v1/chat/completions` when the URL has no path (`http://localhost:11434`) and `chat/completions` when it has one (`https://api.openai.com/v1`); `anthropicMessagesPath` sends `messages` when the path ends in `/v1`, else `v1/messages`. The model is a hand-built `LLModel` with minimal capabilities (OpenAI also needs `OpenAIEndpoint.Completions`; Anthropic needs the model in `modelVersionsMap`).
+- **Key storage:** never stored with the other settings.
+  - Android: AES-256-GCM with a key in the Android Keystore (`AesGcmSecretCipher`, `KeystoreSecretStore`), ciphertext in a separate preferences file. If the Keystore key is lost or invalidated (lock-screen change, restore to another device) the ciphertext is discarded and the user re-enters the key; provider/base URL/model are kept.
+  - iOS: Keychain via `KeychainSettings`. Items survive an app uninstall; the next save overwrites them.
+  - Web: no Settings screen, no key stored.
+- **Plain `http://`** to a non-local host (anything but `localhost`, `127.0.0.1`, `[::1]`, `10.0.2.2`) shows a warning but is allowed.
+- **Security model — bring your own key, personal/dev use only.** The app calls the provider directly from the device with the user's own key; there is no backend. That is acceptable for a personal/POC build. It is **not** acceptable for a public App Store / Play Store release that ships or provisions a shared key: anything in the binary or on the device can be extracted, so a shared key must sit behind a backend proxy that authenticates users and enforces quotas.
+
+## 8. Feature: localization (i18n)
+
+Languages: `en` (default and fallback) and `vi`. The UI follows the device language only (no in-app switcher); any other language falls back to `en`. Uses Compose Resources, no extra library.
+
+- **Strings:** `sharedUI/src/commonMain/composeResources/values/strings.xml` (en) and `values-vi/strings.xml`, one file per locale. Read with `stringResource(Res.string.<key>)` (`vcman.sharedui.generated.resources.Res`).
+- **No hard-coded user-facing text** in Composables; only `@Preview` and test data may use literals. Dynamic values use positional placeholders (`%1$s`, `%1$d`), never concatenation.
+- **ViewModels never return display strings.** They emit typed data (`AnalysisFailure`, `RequiredFieldId`, `SettingsFieldError`, `ConnectionTestResult`); `sharedUI/ui/AnalysisFailureText.kt` and `SettingsText.kt` map it to resources with an exhaustive `when` (no `else`), so a new case will not build without a message. Provider labels use one format string (`settings_provider_option`) plus `brand`.
+- **LLM answer language** = the `content_language_tag` resource, exposed by `rememberContentLanguage()` and passed as `LanguageTag` through `ScoreAnalysisViewModel.analyze` → `ScoreAnalysisService.analyze` → `PromptBuilder.buildUserPrompt`. Reports already received are not re-translated when the locale changes.
+- **Score decimal separator** = the `decimal_separator` resource (`formatScore(value, separator)`); minimal formatting, not CLDR.
+- **Vietnamese glossary:** rubric = "rubric", score = "điểm", weight = "trọng số". Always write Vietnamese with diacritics.
+- **Add a key:** add it to `values` and every `values-xx`. **Add a language:** create `values-xx/strings.xml` with every key (including `decimal_separator` and `content_language_tag` = `xx`), then add `xx` to `CFBundleLocalizations` in `iosApp/iosApp/Info.plist` and `knownRegions` in `iosApp/iosApp.xcodeproj/project.pbxproj`. No Kotlin change needed.
+- **Guard:** `StringResourcesCompletenessTest` (`sharedUI` `androidHostTest`) fails on missing/unknown keys, differing placeholders, blank strings or a wrong `content_language_tag`. Compose Resources silently falls back to `values`, so this test is the only check.
+- **Locale tests:** exact-text assertions only in `androidHostTest` (`LocalizedUiTest`, Robolectric `@Config(qualifiers = ...)`); `commonTest` asserts locale-independent facts only.
+- **Android `app_name`** is a brand name (`translatable="false"` in `androidApp/src/main/res/values/strings.xml`).
+
+## 9. Tech stack
+
+Exact versions come from `gradle/libs.versions.toml` (Kotlin/JVM) and `webApp/package.json` (web, `^` = npm minimum). If this table disagrees, those files win.
+
+**Toolchain and platform**
 
 | Component | Version |
 |---|---|
 | Kotlin | 2.4.20 |
-| AGP (Android Gradle Plugin) | 9.1.1 |
-| Compose Multiplatform | 1.12.1 |
-| Material3 (Compose) | 1.12.0-alpha03 |
-| AndroidX Lifecycle (KMP artifacts) | 2.11.0 |
-| kotlin-wrappers (JS/React interop) | 2026.9.2 |
-| AndroidX Activity | 1.13.0 |
+| Android Gradle Plugin (KMP library plugin `com.android.kotlin.multiplatform.library`) | 9.1.1 |
+| Gradle wrapper (configuration cache + build cache on in `gradle.properties`) | 9.5.1 |
 | Android compileSdk / targetSdk / minSdk | 37 / 37 / 27 |
-| Gradle wrapper | 9.5.1 |
-| JVM target (all Kotlin/Android modules) | 11 |
-| React (webApp) | ^18.2.0 |
-| Vite (webApp) | ^7.1.6 |
-| TypeScript (webApp) | ^5.0.2 |
-| Koog (`ai.koog:koog-agents` + `prompt-executor-{anthropic,openai}-client`) | 1.3.0 |
-| Ktor client | 3.3.3 |
-| kotlinx.serialization | 1.11.0 |
-| kotlinx.coroutines (`kotlinx-coroutines-test`, `commonTest` only) | 1.11.0 |
-| Compose UI test (`org.jetbrains.compose.ui:ui-test`, `sharedUI` `commonTest` only) | 1.12.1 |
-| Robolectric (`sharedUI` `androidHostTest` only, backs `runComposeUiTest` on the JVM) | 4.15.1 |
-| multiplatform-settings (`com.russhwolf:multiplatform-settings` + `-coroutines` for `SuspendSettings`, `sharedLogic`; `-datastore` in `androidMain` only; `-test` for `MapSettings` in `commonTest` only) | 1.3.0 |
-| AndroidX DataStore (`androidx.datastore:datastore-preferences`, `sharedLogic` `androidMain` only; backs the Android settings/secret stores) | 1.2.1 |
-| Navigation Compose Multiplatform (`org.jetbrains.androidx.navigation:navigation-compose`, `sharedUI` `commonMain`) | 2.9.2 |
+| JVM target (all modules) | 11 |
 
-`gradle/libs.versions.toml` is the single source of truth for JVM/Kotlin dependency versions; if this table disagrees with it, **the catalog wins**. `webApp/package.json` is the source of truth for web dependency versions. `^x.y.z` values are npm semver ranges copied from `webApp/package.json` (minimum version, not an exact pin) — all other rows are exact pinned versions from `gradle/libs.versions.toml`.
+**Shared libraries**
 
-Koog's `android`-targeted artifacts are compiled against JVM 17 bytecode; calling one of Koog's own `inline` reified functions (e.g. `ai.koog.serialization.typeToken<T>()`) from `sharedLogic` would embed that JVM 17 bytecode into a JVM 11 compilation unit and fail to compile. Prefer the non-inline overload (e.g. `typeToken(kotlin.reflect.typeOf<T>())`) when Koog offers one; see `KoogLlmChats.kt` for a worked example.
+| Library | Where | Version |
+|---|---|---|
+| Compose Multiplatform | `sharedUI` | 1.12.1 |
+| Material3 (Compose) | `sharedUI` | 1.12.0-alpha03 |
+| Navigation Compose Multiplatform | `sharedUI` | 2.9.2 |
+| AndroidX Lifecycle (KMP: `viewmodel`, `-viewmodel-compose`, `-runtime-compose`) | `sharedLogic`, `sharedUI` | 2.11.0 |
+| AndroidX Activity (Compose) | `androidApp` | 1.13.0 |
+| Koog (`koog-agents`, `prompt-executor-{anthropic,openai}-client`) | `sharedLogic` | 1.3.0 |
+| Ktor client (core, content-negotiation; engines okhttp / darwin / js) | `sharedLogic` | 3.3.3 |
+| kotlinx.serialization (json) | `sharedLogic`, `sharedUI` | 1.11.0 |
+| kotlinx.coroutines core | `sharedLogic` | **transitive, not declared** — 1.10.2 on `android`/`ios*`, 1.11.0 on `js` |
+| multiplatform-settings (+ `-coroutines`; `-datastore` in `androidMain`) | `sharedLogic` | 1.3.0 |
+| AndroidX DataStore Preferences | `sharedLogic` `androidMain` | 1.2.1 |
+| kotlin-wrappers (`kotlin-browser`) | `sharedLogic` `jsMain` | 2026.9.2 |
 
-Not present yet: DI, database persistence, and logging libraries. Key-value preferences (multiplatform-settings) exist in `sharedLogic` (`data.SettingsRepository`) and navigation (Navigation Compose) in `sharedUI`, both added for issue #40 (Settings screen). Networking (Ktor + kotlinx.serialization) and an LLM agent framework (Koog) were added in `sharedLogic` for issue #7 (`data.ScoreAnalysisService`) — see `## Recommended additions` below for what is still missing. No Gradle lint plugin (only an IDE-level ktlint setting in `.idea/ktlint-plugin.xml`). CI is configured via `.github/workflows/ci.yml` (runs the `## Test` suites on PRs to `main` and pushes to `main`); see `## Recommended additions` below.
+**Testing**
 
-## Project structure
+| Library | Where | Version |
+|---|---|---|
+| kotlin-test | all `*Test` | = Kotlin |
+| kotlinx-coroutines-test | `sharedLogic` `commonTest` | 1.11.0 |
+| Ktor client mock | `sharedLogic` `commonTest` | 3.3.3 |
+| multiplatform-settings-test (`MapSettings`) | `sharedLogic` `commonTest` | 1.3.0 |
+| Compose UI test (`runComposeUiTest`) | `sharedUI` `commonTest` | 1.12.1 |
+| Robolectric | `sharedUI` `androidHostTest` | 4.15.1 |
 
-| Path | Type | Role | Depends on |
+**Web (`webApp/package.json`)**: React ^18.2.0, Vite ^7.1.6, TypeScript ^5.0.2.
+
+## 10. Roadmap: limitations and modernization backlog
+
+Nothing in this section exists in the code. Each item needs an issue, and anything that adds a dependency or plugin needs approval first (**Boundaries**). Pick the latest stable version and check it against Kotlin / Compose Multiplatform / AGP above before adding it to the catalog.
+
+**Product gaps (POC scope)**
+
+| Gap | Today | Next step |
+|---|---|---|
+| Web feature | `webApp` shows `Greeting`; no `js` `createSettingsRepository`, no web UI | Decide React UI over `sharedLogic` JS vs. a Compose `wasmJs` target |
+| Saved rubrics / analysis history | Rubric, subject and report are in memory only (`rememberSaveable` survives process death, not an app restart); only LLM settings persist | Add a KMP database (see below) |
+| Web search during analysis | `FirecrawlSearchTool` is implemented and tested, but `ScoreAnalysisViewModel` passes `searchTool = null` and no UI takes a Firecrawl key | Add the key to Settings and pass the config |
+| Public release | Bring-your-own-key only (section 7) | Backend proxy holding the key |
+
+**Engineering backlog (ordered by value / effort)**
+
+| # | Item | Why (industry standard) | Applies to |
 |---|---|---|---|
-| `sharedLogic` | Gradle module `:sharedLogic` | Pure-Kotlin shared business logic. Targets: `android`, `iosArm64`, `iosSimulatorArm64`, `js` (browser library, generates TypeScript definitions). | — |
-| `sharedUI` | Gradle module `:sharedUI` | Compose Multiplatform UI shared by Android and iOS. Targets: `android`, `iosArm64`, `iosSimulatorArm64` (static framework `SharedUI`). **No `js` target.** | `sharedLogic` |
-| `androidApp` | Gradle module `:androidApp` | Android app entry point (`com.android.application`). | `sharedUI` |
-| `iosApp` | Xcode project — **not a Gradle module** | SwiftUI entry point, consumes the `SharedUI` framework. | `sharedUI` (compiled framework) |
-| `webApp` | npm workspace — **not a Gradle module** | React + TypeScript + Vite app, consumes the Kotlin/JS output of `sharedLogic`. | `sharedLogic` (npm package) |
+| 1 | Declare `kotlinx-coroutines-core` in the catalog | Main code imports it directly; today its version drifts per target via Koog/Ktor/Lifecycle | `sharedLogic` |
+| 2 | ktlint + Compose Rules (Gradle plugin, run in CI); detekt optional | Enforced formatting and Compose pitfalls; today only an IDE-level ktlint setting in `.idea/` | all Kotlin |
+| 3 | Convention plugins in `build-logic` (included build) | Removes duplicated target/compiler/Android config across `sharedLogic` and `sharedUI` | build |
+| 4 | DI: Koin (Koin Annotations / KSP for compile-time checks) | Replaces manual wiring as the graph grows; one injection mechanism | `sharedLogic`, entry points |
+| 5 | Logging: Kermit | Multiplatform logging with crash-reporting hooks | `sharedLogic` |
+| 6 | Turbine | Deterministic `Flow`/`StateFlow` assertions in `commonTest` | tests |
+| 7 | Persistence: Room KMP or SQLDelight (both support JS/WasmJS now) | Needed for rubric/analysis history | `sharedLogic` |
+| 8 | Raise JVM target 11 → 17 | Matches Koog's bytecode and current AGP defaults; removes the inline-function workaround | all modules (ask first) |
+| 9 | Swift-friendly API: SKIE or KMP-NativeCoroutines | Only if Swift code starts consuming `Flow`/`suspend` directly; today Swift only hosts Compose | `sharedUI`/iOS |
 
-`settings.gradle.kts` only `include`s `:androidApp`, `:sharedLogic`, `:sharedUI`. `iosApp` and `webApp` are top-level directories but have no Gradle build of their own — build/run them with Xcode and npm respectively.
+Already done and no longer on the backlog: Ktor + kotlinx.serialization (issue #7), multiplatform-settings (issue #40), Navigation Compose (issue #40), GitHub Actions CI with separate Linux/macOS runners.
 
-Dependency flow: `androidApp -> sharedUI -> sharedLogic`; `iosApp -> SharedUI framework -> sharedLogic`; `webApp -> sharedLogic (Kotlin/JS)`.
+## 11. References
 
-`sharedLogic` source sets: `commonMain`, `androidMain`, `iosMain`, `jsMain`, `commonTest`, `androidHostTest`, `iosTest`, `webTest`. `expect`/`actual` files follow the pattern `Xxx.kt` (expect) + `Xxx.android.kt` / `Xxx.ios.kt` / `Xxx.js.kt` (actual), e.g. `Platform.kt`.
-
-Note: `README.md` mentions a Desktop/`jvmMain` folder under `sharedUI`. No `jvm`/desktop target is actually configured in `sharedUI/build.gradle.kts` — treat that README text as leftover wizard boilerplate, not a real target.
-
-## Architecture
-
-- `sharedLogic` is pure Kotlin (no Compose) and must stay compilable for **all three targets** (`android`, `ios*`, `js`). Layer new code by **package** inside `commonMain` (`domain` / `data` / `presentation`) — do not create new Gradle modules for this; the codebase is too small to justify it today.
-- `sharedUI` holds Compose Multiplatform UI shared by Android and iOS only (no `js` target — do not add Compose-only code expecting it to run on web).
-- **Presentation layer: MVVM.** One `ViewModel` per screen, living in `sharedLogic`'s `presentation` package (business/UI-state logic stays platform-agnostic there), exposing state to Composables in `sharedUI` as `StateFlow` via `androidx.lifecycle-viewmodel-compose` / `androidx.lifecycle-runtime-compose` (already in `libs.versions.toml` and wired into `sharedUI/build.gradle.kts`). Composables should stay stateless — read state and forward events to the ViewModel, not own business logic.
-  - Source: Google architecture guidance adapted for Kotlin Multiplatform (same `ViewModel`/unidirectional state pattern, DI swapped for Koin) — https://developer.android.com/topic/architecture
-- **Navigation:** Navigation Compose with two type-safe routes (`HomeRoute`, `SettingsRoute`) in `App.kt`. State that must survive a trip to Settings (`SetupInput`) is hoisted above the `NavHost`; `ScoreAnalysisViewModel` is created in `App`, outside the `NavHost`, so an in-flight analysis is not lost. `SettingsViewModel` is scoped to its back-stack entry (unsaved edits are dropped on Back).
-- **Settings storage and wiring (no DI yet):** `SettingsRepository` (interface, `sharedLogic` `data`) is created at the entry point and passed down: `createSettingsRepository(context)` in `MainActivity`, `createSettingsRepository()` in `MainViewController`. `webApp` has no Settings screen and stores no key.
-- Entry-point modules (`androidApp`, `iosApp`, `webApp`) must stay thin: wiring/bootstrap only, no business logic.
-- **Rule — `expect`/`actual` vs interface + DI:**
-  - Use `expect`/`actual` when the compiler must enforce that every platform provides an implementation, when the underlying platform types genuinely differ, or when wrapping a platform global/singleton API (e.g. the existing `Platform.kt`).
-  - Use a `commonMain` interface with per-platform implementations wired through DI for everything else — anything that needs to be mockable, have multiple implementations, or be swapped in tests.
-  - Source: https://kotlinlang.org/docs/multiplatform/multiplatform-expect-actual.html
-
-## Setup
-
-```bash
-# Android / Kotlin: no local JDK/Gradle install required, use the wrapper
-./gradlew --version
-
-# Web
-# Install Node.js (includes npm): https://nodejs.org/en/download
-
-# iOS
-# Requires macOS + Xcode. iosSimulatorArm64 requires an Apple Silicon Mac.
-```
-
-- Android SDK location goes in `local.properties` (`sdk.dir=...`) — do not commit this file.
-
-## Build & run
-
-```bash
-# Android app
-./gradlew :androidApp:assembleDebug
-
-# Web app
-npm run build:shared   # runs: ./gradlew :sharedLogic:jsBrowserDevelopmentLibraryDistribution
-npm install
-npm run start           # build:shared + vite dev server for webApp
-
-# iOS app
-# Open /iosApp in Xcode and run from there.
-```
-
-## Test
-
-```bash
-# Android tests
-./gradlew :sharedUI:testAndroidHostTest :sharedLogic:testAndroidHostTest
-
-# Web tests
-./gradlew :sharedLogic:jsTest
-
-# iOS tests
-./gradlew :sharedUI:iosSimulatorArm64Test :sharedLogic:iosSimulatorArm64Test
-```
-
-| Source set | Gradle task |
-|---|---|
-| `androidHostTest` | `testAndroidHostTest` |
-| `webTest` | `jsTest` |
-| `iosTest` | `iosSimulatorArm64Test` |
-
-CI (`.github/workflows/ci.yml`) runs these same three test suites as three independent jobs (`android-jvm`, `js`, `ios`) on every PR/push to `main`; the `android-jvm` and `ios` jobs additionally pass `--continue` so one test failure doesn't stop the rest of the suite from running. Each job's `name:` is also its PR status check name — do not rename a job without checking whether it's been set as a required status check in GitHub branch protection first.
-
-## Code style
-
-- `kotlin.code.style=official` (4-space indent), set in `gradle.properties`.
-- Package root: `com.tekome.vcman` (`.sharedLogic`, `.sharedUI` sub-namespaces per module).
-- `expect`/`actual` file naming: `Xxx.kt` + `Xxx.android.kt` / `Xxx.ios.kt` / `Xxx.js.kt`, matching existing `Platform.kt`.
-- Composables: PascalCase function names; `Modifier` is the first parameter with a default value.
-- JVM target is 11 across all Kotlin/Android modules — do not use APIs newer than Java 11.
-- `webApp`: standard React/TypeScript conventions — function components, `.tsx` files, CSS next to the component that uses it.
-- Every JVM/Kotlin dependency must be declared via an alias in `gradle/libs.versions.toml` (`libs.*`) — no inline version strings in `build.gradle.kts`.
-
-## LLM settings (issue #40)
-
-- **Where:** `sharedLogic` `data` (`LlmProviderType`, `LlmSettings`, `SettingsRepository`, `ConnectionTester`, `KoogLlmChats.kt`) and `presentation` (`SettingsViewModel`); UI in `sharedUI/ui/SettingsScreen.kt` + `SettingsText.kt`. `LlmProviderType` lives in `data` (not `domain`) because it carries the Koog client builder and `ApiKey` is already in `data`.
-- **Add a provider = one enum entry.** Add an entry to `LlmProviderType` (`id`, `brand`, `defaultBaseUrl`, `defaultModel`, `createChat`) plus one builder function in `KoogLlmChats.kt` (`xxxCompatibleChat(settings, httpClientFactory)`). The compiler forces the builder; the provider list in Settings, defaults, validation, repository, connection test and analysis are all driven by `LlmProviderType.entries`. Never branch on a specific provider elsewhere. The persisted `id` must never change.
-- **Base URL / path rules:** the user's base URL is kept as typed (trimmed, trailing `/` removed). Koog appends the request path after the base URL's own path, so `openAiChatPath` sends `v1/chat/completions` when the URL has no path (`http://localhost:11434`) and `chat/completions` when it already has one (`https://api.openai.com/v1`, `https://openrouter.ai/api/v1`); `anthropicMessagesPath` sends `messages` when the path ends in `/v1`, else `v1/messages`. The model is a hand-built `LLModel` with minimal capabilities (OpenAI also needs `OpenAIEndpoint.Completions`; Anthropic needs the model in `modelVersionsMap`).
-- **API key storage and limits:** the key is never stored with the other settings. Android: AES-256-GCM with a key in the Android Keystore (`AesGcmSecretCipher`, `KeystoreSecretStore`), ciphertext in a separate preferences file; if the Keystore key is lost or invalidated (lock-screen change, backup restore to another device) the ciphertext and key are discarded and the user must re-enter the key (provider/base URL/model are kept). iOS: Keychain via `KeychainSettings`; Keychain items survive an app uninstall, and the next save overwrites them. The key keeps the `ApiKey` type in every state class so `toString()` never prints it; it is never put in `rememberSaveable`. Plain `http://` to a non-local host (anything but `localhost`, `127.0.0.1`, `[::1]`, `10.0.2.2`) shows a warning but is allowed.
-- **Tests:** `multiplatform-settings-test` (`MapSettings`) is used in `commonTest` only. Android crypto tests run on the host JVM with a software key (the Keystore is unavailable there) via the `SecretKeyProvider` interface. `KeychainSettings`/`AndroidKeyStore` need a manual check on a real device (kill the app, reopen, settings still there).
-
-## Localization (i18n)
-
-Supported languages: `en` (default/fallback) and `vi`. The UI follows the device system language only (no in-app switcher); any other device language falls back to `en`. Uses Compose Resources already in `sharedUI`, no extra library.
-
-- **Where strings live:** `sharedUI/src/commonMain/composeResources/values/strings.xml` (en, fallback) and `values-vi/strings.xml`. One `strings.xml` per locale directory. Read with `stringResource(Res.string.<key>)`; `Res` is `vcman.sharedui.generated.resources.Res`.
-- **No hard-coded user-facing text** in Composables (`Text("...")`, `label = "..."`). Only `@Preview` and test data may contain literals. Dynamic values use positional placeholders (`%1$s`, `%1$d`), never string concatenation.
-- **ViewModels never return display strings.** `sharedLogic` emits typed data (`AnalysisUiState.Error(AnalysisFailure)`, `RequiredFieldId`); `sharedUI/ui/AnalysisFailureText.kt` maps it to a string resource with an exhaustive `when` (no `else`), so a new failure type will not build until it has a message. The same applies to `SettingsFieldError` and `ConnectionTestResult` in `sharedUI/ui/SettingsText.kt`; provider labels use one format string (`settings_provider_option`) plus the provider `brand`, so a new provider needs no new string.
-- **LLM answer language** = `content_language_tag` resource (`en` / `vi`), exposed by `rememberContentLanguage()`, passed as `LanguageTag` through `ScoreAnalysisViewModel.analyze` -> `ScoreAnalysisService.analyze` -> `PromptBuilder.buildUserPrompt`. It follows the same fallback as the UI. Already-received reports are not re-translated when the locale changes.
-- **Score decimal separator** comes from the `decimal_separator` resource (`formatScore(value, separator)`); minimal formatting, not CLDR.
-- **Vietnamese glossary:** rubric = "rubric", score = "điểm", weight = "trọng số". Always write Vietnamese with diacritics.
-- **Add a key:** add it to `values` and to every `values-xx`. **Add a language:** create `values-xx/strings.xml` with all keys (including `decimal_separator` and `content_language_tag` = `xx`), then add `xx` to `CFBundleLocalizations` in `iosApp/iosApp/Info.plist` and to `knownRegions` in `iosApp/iosApp.xcodeproj/project.pbxproj`. No Composable/ViewModel change is needed.
-- **Completeness is enforced by a test:** `StringResourcesCompletenessTest` (`sharedUI` `androidHostTest`) scans every `values-*` for missing/unknown keys, differing placeholders, blank strings and a mismatched `content_language_tag`. Compose Resources itself silently falls back to `values`, so this test is the only guard.
-- **Android `app_name`** is a brand name, marked `translatable="false"` in `androidApp/src/main/res/values/strings.xml`. Remove the flag and add `values-vi/strings.xml` there if a localized name is wanted.
-- **Locale tests:** exact-text assertions live in `androidHostTest` (`LocalizedUiTest`, Robolectric `@Config(qualifiers = ...)`); `commonTest` must only assert locale-independent facts.
-
-## Recommended additions (not installed)
-
-**Everything in this section is NOT installed except the Networking, Preferences, Navigation and CI/CD rows below (installed for issue #7, issue #40 and the CI workflow, respectively). Do not assume any other library listed here is available in the code.**
-
-| Area | Suggested | Why | Applies to | Status |
-|---|---|---|---|---|
-| Networking | Ktor client + kotlinx.serialization | Official multiplatform HTTP client, auto engine selection per target | `sharedLogic`, all targets | INSTALLED (issue #7: `data.FirecrawlSearchTool`, Koog LLM clients) |
-| DI | Koin, prefer Koin Annotations (KSP) | Compile-time safe bindings; catches missing bindings at build time, useful for AI-agent-driven edits | `sharedLogic` | NOT INSTALLED |
-| Persistence | SQLDelight or Room (KMP) | SQL-first vs annotation-based; Room only gained JS/WasmJS support in Room 3.0 (03/2026) — previously SQLDelight was the only option for this repo's `js` target. Both support JS/WasmJS now — pick per team preference | `sharedLogic` | NOT INSTALLED |
-| Preferences | multiplatform-settings | Simple key-value store, supports all targets including JS | `sharedLogic` | INSTALLED (issue #40: `data.StoredSettingsRepository`; `createSettingsRepository` on Android (DataStore + Keystore-encrypted key) and iOS (`NSUserDefaults` + Keychain); no JS implementation, web has no Settings) |
-| Navigation | AndroidX Navigation Compose Multiplatform (Decompose as advanced alternative) | Official, same API as Jetpack Compose Navigation | `sharedUI` only, not `webApp` | INSTALLED (issue #40: `App.kt`, `HomeRoute`/`SettingsRoute`) |
-| Logging | Kermit or Napier | Multiplatform logging; Kermit adds crash-reporting integrations | `sharedLogic` | NOT INSTALLED |
-| Lint/format | ktlint + Compose Rules ruleset | Catches Compose-specific pitfalls; detekt/Spotless optional | `sharedUI` (Compose rules), all Kotlin code (ktlint) | NOT INSTALLED |
-| Testing | Turbine (on top of existing kotlin-test) | Deterministic `Flow`/`StateFlow` testing, add when Flow-based logic exists | `sharedLogic` | NOT INSTALLED |
-| CI/CD | GitHub Actions: Linux runner for Android/JVM/JS tests, separate macOS runner for iOS | Standard split-runner setup for KMP; Fastlane/code signing/SBOM only once real releases exist | repo-wide | INSTALLED (`.github/workflows/ci.yml`: `android-jvm` / `js` / `ios` jobs, runs the `## Test` suites) |
-
-Versions are intentionally not pinned here. Use the latest stable release and verify compatibility with Kotlin 2.4.20 / Compose Multiplatform 1.12.1 / AGP 9.1.1 before adding anything to `gradle/libs.versions.toml`.
-
-## Boundaries
-
-**Always**
-- Use the `./gradlew` wrapper, never a separately installed Gradle.
-- Declare dependencies through `gradle/libs.versions.toml` and reference them via `libs.*` aliases.
-- Keep `sharedLogic` compiling for all three targets (`android`, `ios*`, `js`).
-- Run the tests for any target you touched before reporting work as done.
-- Update the `## Tech stack (current)` table in this file if you bump a version in the catalog.
-
-**Ask first**
-- Adding any new library, plugin, or dependency — including anything listed in `## Recommended additions`.
-- Adding a new Gradle module or target (e.g. `wasmJs`, `jvm`/desktop).
-- Restructuring packages or moving files between modules.
-- Adding a CI workflow (`.github/workflows/...`).
-
-**Never**
-- Change `kotlin`, `agp`, `composeMultiplatform`, `material3`, or SDK versions in `gradle/libs.versions.toml` on your own.
-- Hard-code a dependency version directly in a `build.gradle.kts` instead of the version catalog.
-- Edit or delete `README.md`.
-- Commit `local.properties`, `.idea/`, `node_modules/`, or any `build/` directory.
-- Add platform-specific APIs into `commonMain`.
-- Assume a library from `## Recommended additions` is already installed.
+- Kotlin Multiplatform project structure / hierarchy: https://kotlinlang.org/docs/multiplatform/multiplatform-hierarchy.html
+- `expect`/`actual` and platform APIs: https://kotlinlang.org/docs/multiplatform/multiplatform-expect-actual.html, https://kotlinlang.org/docs/multiplatform/multiplatform-connect-to-apis.html
+- Gradle best practices: https://kotlinlang.org/docs/gradle-best-practices.html
+- Coroutines in KMP: https://kotlinlang.org/docs/multiplatform-mobile-concurrency-and-coroutines.html
+- Testing KMP: https://kotlinlang.org/docs/multiplatform/multiplatform-run-tests.html
+- Android app architecture: https://developer.android.com/topic/architecture
+- Library search: https://klibs.io
 
 ---
-Last verified against the repo on 2026-09-27 (Kotlin 2.4.20, AGP 9.1.1, Compose Multiplatform 1.12.1, Koog 1.3.0, Ktor 3.3.3).
+Last verified against the repo on 2026-10-08 (Kotlin 2.4.20, AGP 9.1.1, Compose Multiplatform 1.12.1, Koog 1.3.0, Ktor 3.3.3, kotlinx.serialization 1.11.0).
