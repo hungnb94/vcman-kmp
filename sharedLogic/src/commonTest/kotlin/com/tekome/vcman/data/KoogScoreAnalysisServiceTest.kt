@@ -15,6 +15,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 class KoogScoreAnalysisServiceTest {
     private val rubric = RubricInput(title = "Rubric", text = "Text")
@@ -87,6 +88,22 @@ class KoogScoreAnalysisServiceTest {
             val exception = assertIs<AnalysisException>(result.exceptionOrNull())
             val error = assertIs<AnalysisError.AmbiguousSubject>(exception.error)
             assertEquals("Ambiguous: Foo Inc vs Foo Corp", error.explanation)
+        }
+
+    @Test
+    fun analyze_knownAmbiguousSubjectsReturnAmbiguousSubject() =
+        runTest {
+            knownAmbiguousSubjects.forEach { subject ->
+                val raw = """{"subjectName":"$subject","overallSummary":"subject=$subject","sections":[]}"""
+                val service = serviceWith({ LlmChat { _, _, _ -> raw } })
+
+                val result = service.analyze(rubric, subject, requestConfig(), LanguageTag.Default)
+
+                assertTrue(result.isFailure, subject)
+                val exception = assertIs<AnalysisException>(result.exceptionOrNull())
+                val error = assertIs<AnalysisError.AmbiguousSubject>(exception.error)
+                assertEquals("subject=$subject", error.explanation)
+            }
         }
 
     @Test

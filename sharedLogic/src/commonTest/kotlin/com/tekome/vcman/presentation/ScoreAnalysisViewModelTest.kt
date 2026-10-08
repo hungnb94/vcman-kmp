@@ -6,6 +6,7 @@ import com.tekome.vcman.data.FakeSettingsRepository
 import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.LlmRequestConfig
 import com.tekome.vcman.data.ScoreAnalysisService
+import com.tekome.vcman.data.knownAmbiguousSubjects
 import com.tekome.vcman.data.validSettings
 import com.tekome.vcman.domain.LanguageTag
 import com.tekome.vcman.domain.ProjectScoreReport
@@ -339,6 +340,21 @@ class ScoreAnalysisViewModelTest {
             assertIs<AnalysisUiState.Success>(vm.uiState.value)
             assertEquals(1, firstService.calls)
             assertEquals(1, secondService.calls)
+        }
+
+    @Test
+    fun analyze_knownAmbiguousSubjectsEmitAmbiguousFailure() =
+        runTest {
+            knownAmbiguousSubjects.forEach { subject ->
+                val service = FakeScoreAnalysisService()
+                val vm = ScoreAnalysisViewModel(FakeSettingsRepository(validSettings()), service = service)
+                service.complete(Result.failure(AnalysisException(AnalysisError.AmbiguousSubject("subject=$subject"))))
+
+                vm.analyze("Title", "Rubric text", subject, VI)
+
+                val state = assertIs<AnalysisUiState.Error>(vm.uiState.value)
+                assertEquals(AnalysisFailure.AmbiguousSubject("subject=$subject"), state.failure)
+            }
         }
 
     @Test

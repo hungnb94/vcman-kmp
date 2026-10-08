@@ -26,7 +26,7 @@ import kotlin.test.assertTrue
 @Composable
 private fun StatefulSetupScreen(
     loading: Boolean,
-    error: String?,
+    notice: SetupNotice?,
     onAnalyze: (rubricTitle: String, rubricText: String, subject: String) -> Unit,
     sampleRubric: SampleRubric,
     onOpenSettings: () -> Unit = {},
@@ -41,7 +41,7 @@ private fun StatefulSetupScreen(
             onInputChange(it)
         },
         loading = loading,
-        error = error,
+        notice = notice,
         onAnalyze = onAnalyze,
         onOpenSettings = onOpenSettings,
         sampleRubric = sampleRubric,
@@ -59,7 +59,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
             setContent {
                 StatefulSetupScreen(
                     loading = false,
-                    error = null,
+                    notice = null,
                     onAnalyze = { title, text, subject -> calls += listOf(title, text, subject) },
                     sampleRubric = fakeSample,
                 )
@@ -81,7 +81,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
             setContent {
                 StatefulSetupScreen(
                     loading = false,
-                    error = null,
+                    notice = null,
                     onAnalyze = { title, text, subject -> calls += listOf(title, text, subject) },
                     sampleRubric = fakeSample,
                 )
@@ -100,7 +100,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
             setContent {
                 StatefulSetupScreen(
                     loading = false,
-                    error = null,
+                    notice = null,
                     onAnalyze = { title, text, subject -> calls += listOf(title, text, subject) },
                     sampleRubric = fakeSample,
                 )
@@ -123,7 +123,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
             setContent {
                 StatefulSetupScreen(
                     loading = false,
-                    error = null,
+                    notice = null,
                     onAnalyze = { _, _, _ -> },
                     sampleRubric = fakeSample,
                 )
@@ -139,7 +139,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
             setContent {
                 StatefulSetupScreen(
                     loading = false,
-                    error = null,
+                    notice = null,
                     onAnalyze = { _, _, _ -> },
                     sampleRubric = fakeSample,
                     onOpenSettings = { opened++ },
@@ -157,7 +157,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
             setContent {
                 StatefulSetupScreen(
                     loading = true,
-                    error = null,
+                    notice = null,
                     onAnalyze = { _, _, _ -> },
                     sampleRubric = fakeSample,
                 )
@@ -173,7 +173,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
             setContent {
                 StatefulSetupScreen(
                     loading = true,
-                    error = null,
+                    notice = null,
                     onAnalyze = { title, text, subject -> calls += listOf(title, text, subject) },
                     sampleRubric = fakeSample,
                 )
@@ -192,7 +192,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
             setContent {
                 StatefulSetupScreen(
                     loading = false,
-                    error = null,
+                    notice = null,
                     onAnalyze = { _, _, _ -> },
                     sampleRubric = fakeSample,
                 )
@@ -208,7 +208,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
             setContent {
                 StatefulSetupScreen(
                     loading = false,
-                    error = "Subject is required",
+                    notice = SetupNotice.Error("Subject is required"),
                     onAnalyze = { _, _, _ -> },
                     sampleRubric = fakeSample,
                 )
@@ -220,11 +220,11 @@ class SetupScreenTest : ComposeUiTestRunner() {
     @Test
     fun errorCleared_removesMessage() =
         runComposeUiTest {
-            var currentError by mutableStateOf<String?>("Boom")
+            var currentError by mutableStateOf<SetupNotice?>(SetupNotice.Error("Boom"))
             setContent {
                 StatefulSetupScreen(
                     loading = false,
-                    error = currentError,
+                    notice = currentError,
                     onAnalyze = { _, _, _ -> },
                     sampleRubric = fakeSample,
                 )
@@ -238,12 +238,60 @@ class SetupScreenTest : ComposeUiTestRunner() {
         }
 
     @Test
+    fun clarification_isDisplayedWithDetail_andIsNotAnError() =
+        runComposeUiTest {
+            setContent {
+                StatefulSetupScreen(
+                    loading = false,
+                    notice = SetupNotice.Clarification(title = "Title", hint = "Hint", detail = "Candidates A, B"),
+                    onAnalyze = { _, _, _ -> },
+                    sampleRubric = fakeSample,
+                )
+            }
+
+            onNodeWithTag(SetupScreenTags.CLARIFICATION).assertExists()
+            onNodeWithTag(SetupScreenTags.CLARIFICATION_DETAIL, useUnmergedTree = true).assertTextEquals("Candidates A, B")
+            onNodeWithTag(SetupScreenTags.ERROR).assertDoesNotExist()
+        }
+
+    @Test
+    fun clarification_withoutDetail_hidesDetailNode() =
+        runComposeUiTest {
+            setContent {
+                StatefulSetupScreen(
+                    loading = false,
+                    notice = SetupNotice.Clarification(title = "Title", hint = "Hint", detail = null),
+                    onAnalyze = { _, _, _ -> },
+                    sampleRubric = fakeSample,
+                )
+            }
+
+            onNodeWithTag(SetupScreenTags.CLARIFICATION).assertExists()
+            onNodeWithTag(SetupScreenTags.CLARIFICATION_DETAIL, useUnmergedTree = true).assertDoesNotExist()
+        }
+
+    @Test
+    fun error_doesNotShowClarification() =
+        runComposeUiTest {
+            setContent {
+                StatefulSetupScreen(
+                    loading = false,
+                    notice = SetupNotice.Error("Boom"),
+                    onAnalyze = { _, _, _ -> },
+                    sampleRubric = fakeSample,
+                )
+            }
+
+            onNodeWithTag(SetupScreenTags.CLARIFICATION).assertDoesNotExist()
+        }
+
+    @Test
     fun noError_hidesErrorMessageFromTheStart() =
         runComposeUiTest {
             setContent {
                 StatefulSetupScreen(
                     loading = false,
-                    error = null,
+                    notice = null,
                     onAnalyze = { _, _, _ -> },
                     sampleRubric = fakeSample,
                 )
@@ -260,7 +308,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
                     input = SetupInput(subject = "Bitcoin"),
                     onInputChange = {},
                     loading = false,
-                    error = null,
+                    notice = null,
                     onAnalyze = { _, _, _ -> },
                     onOpenSettings = {},
                     sampleRubric = fakeSample,
@@ -285,7 +333,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
                     input = SetupInput(subject = "Bitcoin"),
                     onInputChange = { changes += it },
                     loading = false,
-                    error = null,
+                    notice = null,
                     onAnalyze = { _, _, _ -> },
                     onOpenSettings = {},
                     sampleRubric = fakeSample,
@@ -307,7 +355,7 @@ class SetupScreenTest : ComposeUiTestRunner() {
                     input = SetupInput(subject = "Bitcoin"),
                     onInputChange = { changes += it },
                     loading = false,
-                    error = null,
+                    notice = null,
                     onAnalyze = { _, _, _ -> },
                     onOpenSettings = {},
                     sampleRubric = fakeSample,

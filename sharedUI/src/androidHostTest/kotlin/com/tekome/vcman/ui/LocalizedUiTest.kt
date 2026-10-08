@@ -1,6 +1,7 @@
 package com.tekome.vcman.ui
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -216,5 +217,49 @@ class LocalizedUiTest : ComposeUiTestRunner() {
             onNodeWithTag(SetupScreenTags.ERROR)
                 .assertTextEquals("The AI connection is not set up. Open Settings to finish setting it up.")
             onNodeWithTag(SetupScreenTags.OPEN_SETTINGS).assertTextEquals("Settings")
+        }
+
+    private fun androidx.compose.ui.test.ComposeUiTest.showAmbiguous(explanation: String) {
+        setContent {
+            AppContent(
+                uiState = AnalysisUiState.Error(AnalysisFailure.AmbiguousSubject(explanation)),
+                onAnalyze = { _, _, _ -> },
+                onAnalyzeAgain = {},
+                settingsRepository = InMemorySettingsRepository(),
+            )
+        }
+        waitForIdle()
+    }
+
+    @Test
+    @Config(qualifiers = "en")
+    fun english_ambiguousSubjectShowsClarification() =
+        runComposeUiTest {
+            showAmbiguous("Candidates: A, B")
+
+            onNodeWithTag(SetupScreenTags.CLARIFICATION).assertTextContains("Please clarify the subject")
+            onNodeWithTag(SetupScreenTags.CLARIFICATION).assertTextContains("add details such as the chain", substring = true, ignoreCase = true)
+            onNodeWithTag(SetupScreenTags.CLARIFICATION_DETAIL, useUnmergedTree = true).assertTextEquals("Candidates: A, B")
+        }
+
+    @Test
+    @Config(qualifiers = "vi")
+    fun vietnamese_ambiguousSubjectShowsClarification() =
+        runComposeUiTest {
+            showAmbiguous("Ứng viên: A, B")
+
+            onNodeWithTag(SetupScreenTags.CLARIFICATION).assertTextContains("Vui lòng làm rõ đối tượng")
+            onNodeWithTag(SetupScreenTags.CLARIFICATION).assertTextContains("Hãy bổ sung chi tiết", substring = true)
+            onNodeWithTag(SetupScreenTags.CLARIFICATION_DETAIL, useUnmergedTree = true).assertTextEquals("Ứng viên: A, B")
+        }
+
+    @Test
+    @Config(qualifiers = "en")
+    fun english_blankExplanationHasNoDetailAndNoDanglingColon() =
+        runComposeUiTest {
+            showAmbiguous("   ")
+
+            onNodeWithTag(SetupScreenTags.CLARIFICATION).assertExists()
+            onNodeWithTag(SetupScreenTags.CLARIFICATION_DETAIL, useUnmergedTree = true).assertDoesNotExist()
         }
 }

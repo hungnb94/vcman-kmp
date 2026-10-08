@@ -16,6 +16,8 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.text.AnnotatedString
+import com.tekome.vcman.data.AnalysisError
+import com.tekome.vcman.data.AnalysisException
 import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.LlmRequestConfig
 import com.tekome.vcman.data.ScoreAnalysisService
@@ -108,18 +110,39 @@ class AppContentTest : ComposeUiTestRunner() {
         }
 
     @Test
-    fun error_showsMessage_andKeepsAnalyzeEnabled() =
+    fun ambiguousSubject_showsClarification_notErrorOrReport() =
         runComposeUiTest {
             setContent {
                 AppContent(
-                    uiState = AnalysisUiState.Error(AnalysisFailure.AmbiguousSubject("Rate limited")),
+                    uiState = AnalysisUiState.Error(AnalysisFailure.AmbiguousSubject("HYPE: two tokens")),
                     onAnalyze = { _, _, _ -> },
                     onAnalyzeAgain = {},
                     settingsRepository = InMemorySettingsRepository(),
                 )
             }
 
-            onNodeWithTag(SetupScreenTags.ERROR).assertTextContains("Rate limited", substring = true)
+            onNodeWithTag(SetupScreenTags.CLARIFICATION).assertExists()
+            onNodeWithTag(SetupScreenTags.CLARIFICATION_DETAIL, useUnmergedTree = true)
+                .assertTextContains("HYPE: two tokens", substring = true)
+            onNodeWithTag(SetupScreenTags.ERROR).assertDoesNotExist()
+            onNodeWithTag(ScoreReportScreenTags.HEADER).assertDoesNotExist()
+            onNodeWithTag(SetupScreenTags.ANALYZE).assertIsEnabled()
+        }
+
+    @Test
+    fun error_showsMessage_andKeepsAnalyzeEnabled() =
+        runComposeUiTest {
+            setContent {
+                AppContent(
+                    uiState = AnalysisUiState.Error(AnalysisFailure.Api(429)),
+                    onAnalyze = { _, _, _ -> },
+                    onAnalyzeAgain = {},
+                    settingsRepository = InMemorySettingsRepository(),
+                )
+            }
+
+            onNodeWithTag(SetupScreenTags.ERROR).assertTextContains("429", substring = true)
+            onNodeWithTag(SetupScreenTags.CLARIFICATION).assertDoesNotExist()
             onNodeWithTag(SetupScreenTags.LOADING).assertDoesNotExist()
             onNodeWithTag(SetupScreenTags.ANALYZE).assertIsEnabled()
         }
@@ -363,6 +386,40 @@ class AppWiringTest : ComposeUiTestRunner() {
             onNodeWithTag(SetupScreenTags.LOADING).assertDoesNotExist()
             onNodeWithTag(SetupScreenTags.ERROR).assertExists()
             assertEquals(emptyList(), service.calls)
+        }
+
+    @Test
+    fun ambiguousSubject_thenCorrectedSubject_keepsInputAndReanalyzes() =
+        runComposeUiTest {
+            val first = CompletableDeferred<Result<ProjectScoreReport>>()
+            val second = CompletableDeferred<Result<ProjectScoreReport>>()
+            val service = RecordingService(listOf(first, second))
+            val repository = InMemorySettingsRepository(configuredSettings())
+            setContent {
+                App(repository, viewModel = ScoreAnalysisViewModel(repository, service))
+            }
+            fillRubric()
+            onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
+            waitForIdle()
+
+            first.complete(Result.failure(AnalysisException(AnalysisError.AmbiguousSubject("Candidates: A, B"))))
+            waitForIdle()
+
+            onNodeWithTag(SetupScreenTags.CLARIFICATION).assertExists()
+            onNodeWithTag(SetupScreenTags.ERROR).assertDoesNotExist()
+            onNodeWithTag(SetupScreenTags.RUBRIC_TITLE)
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("T")))
+            onNodeWithTag(SetupScreenTags.SUBJECT)
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("Bitcoin")))
+
+            onNodeWithTag(SetupScreenTags.SUBJECT).performTextInput(" Core")
+            onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
+            waitForIdle()
+            second.complete(Result.success(fixtureReport))
+            waitForIdle()
+
+            assertEquals(listOf(listOf("T", "Body", "Bitcoin"), listOf("T", "Body", "Bitcoin Core")), service.calls)
+            onNodeWithTag(ScoreReportScreenTags.HEADER).assertExists()
         }
 
     @Test

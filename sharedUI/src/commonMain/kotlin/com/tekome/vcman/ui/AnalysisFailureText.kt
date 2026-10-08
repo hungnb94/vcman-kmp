@@ -5,7 +5,8 @@ import com.tekome.vcman.presentation.AnalysisFailure
 import com.tekome.vcman.presentation.RequiredFieldId
 import org.jetbrains.compose.resources.stringResource
 import vcman.sharedui.generated.resources.Res
-import vcman.sharedui.generated.resources.error_ambiguous_subject
+import vcman.sharedui.generated.resources.clarify_hint
+import vcman.sharedui.generated.resources.clarify_title
 import vcman.sharedui.generated.resources.error_api
 import vcman.sharedui.generated.resources.error_api_status
 import vcman.sharedui.generated.resources.error_invalid_response
@@ -33,9 +34,28 @@ internal fun AnalysisFailure.asText(): String =
 
         AnalysisFailure.InvalidResponse -> stringResource(Res.string.error_invalid_response)
 
-        is AnalysisFailure.AmbiguousSubject -> stringResource(Res.string.error_ambiguous_subject, explanation)
+        is AnalysisFailure.AmbiguousSubject -> stringResource(Res.string.clarify_title)
 
         AnalysisFailure.Unexpected -> stringResource(Res.string.error_unexpected)
+    }
+
+@Composable
+internal fun AnalysisFailure.asNotice(): SetupNotice =
+    when (this) {
+        is AnalysisFailure.AmbiguousSubject ->
+            SetupNotice.Clarification(
+                title = stringResource(Res.string.clarify_title),
+                hint = stringResource(Res.string.clarify_hint),
+                detail = explanation.asClarificationDetail(),
+            )
+
+        is AnalysisFailure.MissingFields,
+        AnalysisFailure.NotConfigured,
+        AnalysisFailure.Network,
+        is AnalysisFailure.Api,
+        AnalysisFailure.InvalidResponse,
+        AnalysisFailure.Unexpected,
+        -> SetupNotice.Error(asText())
     }
 
 /** Localized field name; reuses the setup-screen labels so each term has a single source. */

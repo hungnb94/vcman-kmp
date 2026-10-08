@@ -36,6 +36,7 @@ internal object DefaultPromptBuilder : PromptBuilder {
         return listOf(
             "Please analyze and score the following subject according to the evaluation rubric.",
             "<subject_query>\n$cleanQuery\n</subject_query>",
+            AMBIGUITY_REMINDER,
             "<output_language>\n${outputLanguageDirective(outputLanguage)}\n</output_language>",
         ).joinToString("\n\n")
     }
@@ -46,6 +47,10 @@ private fun outputLanguageDirective(language: LanguageTag): String =
         "comments) in the language with BCP-47 tag \"${language.value}\". " +
         "Keep every JSON key, enum value and number exactly as defined by the schema; do not translate or localize them."
 
+private const val AMBIGUITY_REMINDER: String =
+    "If the subject is ambiguous or there is not enough data to identify it, " +
+        "follow the <ambiguity_policy> and return \"sections\": []."
+
 private const val BASE_SYSTEM_INSTRUCTIONS: String = """You are an expert venture capital analyst evaluating investment opportunities.
 Analyze the target subject strictly according to the evaluation rubric provided below.
 Dynamically infer all sections, questions, and weights directly from the rubric text.
@@ -55,10 +60,16 @@ Provide a credible citation link in "sourceUrl" if evidence/data was referenced,
 
 private const val AMBIGUITY_POLICY: String = """<ambiguity_policy>
 AMBIGUOUS SUBJECT / TICKER COLLISION RULE:
-If the subject query is ambiguous, vague, matches multiple distinct entities (e.g., duplicate stock tickers across exchanges, or multiple companies sharing the same name), or contains insufficient details to uniquely identify the target:
+If the subject query is ambiguous, vague, matches multiple distinct entities (e.g., duplicate stock tickers across exchanges, or multiple companies sharing the same name), contains insufficient details to uniquely identify the target, or you cannot find enough reliable data (insufficient data) to confirm which entity is meant:
 1. STRICT PROHIBITION: Do NOT guess, assume, or arbitrarily select any entity.
 2. EMPTY SECTIONS: Return an empty array for sections: "sections": [].
-3. EXPLANATION: In "overallSummary", explicitly state that the subject is ambiguous, list the conflicting candidates identified, and specify the information needed to disambiguate.
+3. EXPLANATION: In "overallSummary", explicitly state that the subject is ambiguous, list the conflicting candidates identified (if any), and specify the information needed to disambiguate.
+4. This is a correct, expected result, not a failure: scoring the wrong entity is worse than not scoring.
+5. If the query already contains distinguishing details (chain, exchange, website, year) that identify exactly one entity, treat it as resolved and score it normally.
+<example>
+Query: "HYPE"
+Response: {"subjectName": "HYPE", "overallSummary": "Ambiguous: several distinct tokens use the HYPE ticker. Candidates: <list each candidate with its chain or issuer>. Information needed: add the chain, exchange or website.", "sections": []}
+</example>
 </ambiguity_policy>"""
 
 private const val RAW_JSON_DIRECTIVE: String = """OUTPUT FORMAT REQUIREMENTS:

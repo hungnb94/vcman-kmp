@@ -26,7 +26,7 @@ import com.tekome.vcman.ui.ScoreReportScreen
 import com.tekome.vcman.ui.SettingsScreen
 import com.tekome.vcman.ui.SetupInput
 import com.tekome.vcman.ui.SetupScreen
-import com.tekome.vcman.ui.asText
+import com.tekome.vcman.ui.asNotice
 import com.tekome.vcman.ui.rememberContentLanguage
 import kotlinx.serialization.Serializable
 
@@ -81,7 +81,7 @@ internal fun AppContent(
                         input = setupInput,
                         onInputChange = { setupInput = it },
                         loading = uiState.isLoading,
-                        error = uiState.errorFailureOrNull?.asText(),
+                        notice = uiState.errorFailureOrNull?.asNotice(),
                         onAnalyze = onAnalyze,
                         onOpenSettings = {
                             // The error (e.g. NotConfigured) is about to be fixed in Settings; don't show it stale on return.

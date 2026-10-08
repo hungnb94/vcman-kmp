@@ -156,6 +156,29 @@ class PromptBuilderTest {
     }
 
     @Test
+    fun buildSystemPrompt_ambiguityPolicyCoversInsufficientDataAndExample() {
+        val prompt = PromptBuilder.buildSystemPrompt(RubricInput(title = "R", text = "Body"))
+
+        listOf(
+            "insufficient data",
+            "list the conflicting candidates",
+            "specify the information needed to disambiguate",
+            "scoring the wrong entity is worse than not scoring",
+            "already contains distinguishing details",
+            "<example>",
+            "\"sections\": []",
+        ).forEach { assertTrue(prompt.contains(it), "System prompt must contain: $it") }
+    }
+
+    @Test
+    fun buildUserPrompt_remindsAmbiguityPolicy() {
+        val userPrompt = PromptBuilder.buildUserPrompt("HYPE", EN)
+
+        assertTrue(userPrompt.contains("<ambiguity_policy>"))
+        assertTrue(userPrompt.contains("\"sections\": []"))
+    }
+
+    @Test
     fun buildUserPrompt_constructsAnalysisRequestWithSubjectQueryInXmlTag() {
         val subjectQuery = "Stripe Inc. (Fintech payments company)"
         val userPrompt = PromptBuilder.buildUserPrompt(subjectQuery, EN)

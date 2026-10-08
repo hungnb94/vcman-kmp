@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -52,15 +54,17 @@ internal object SetupScreenTags {
     const val ANALYZE = "setup_analyze"
     const val LOADING = "setup_loading"
     const val ERROR = "setup_error"
+    const val CLARIFICATION = "setup_clarification"
+    const val CLARIFICATION_DETAIL = "setup_clarification_detail"
 }
 
 @Composable
-fun SetupScreen(
+internal fun SetupScreen(
     modifier: Modifier = Modifier,
     input: SetupInput,
     onInputChange: (SetupInput) -> Unit,
     loading: Boolean,
-    error: String?,
+    notice: SetupNotice?,
     onAnalyze: (rubricTitle: String, rubricText: String, subject: String) -> Unit,
     onOpenSettings: () -> Unit,
     sampleRubric: SampleRubric = SampleRubrics.cryptoBenchScore,
@@ -114,16 +118,7 @@ fun SetupScreen(
             singleLine = true,
             modifier = Modifier.fillMaxWidth().testTag(SetupScreenTags.SUBJECT),
         )
-        if (error != null) {
-            Text(
-                text = error,
-                color = MaterialTheme.colorScheme.error,
-                modifier =
-                    Modifier
-                        .testTag(SetupScreenTags.ERROR)
-                        .semantics { liveRegion = LiveRegionMode.Polite },
-            )
-        }
+        notice?.let { SetupNoticeBlock(it) }
         Button(
             onClick = {
                 onAnalyze(
@@ -151,6 +146,72 @@ fun SetupScreen(
 }
 
 @Composable
+private fun SetupNoticeBlock(notice: SetupNotice) {
+    when (notice) {
+        is SetupNotice.Error -> ErrorNotice(notice)
+        is SetupNotice.Clarification -> ClarificationNotice(notice)
+    }
+}
+
+@Composable
+private fun ErrorNotice(notice: SetupNotice.Error) {
+    Text(
+        text = notice.message,
+        color = MaterialTheme.colorScheme.error,
+        modifier =
+            Modifier
+                .testTag(SetupScreenTags.ERROR)
+                .semantics { liveRegion = LiveRegionMode.Polite },
+    )
+}
+
+@Composable
+private fun ClarificationNotice(notice: SetupNotice.Clarification) {
+    Card(
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            ),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(SetupScreenTags.CLARIFICATION)
+                .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(text = notice.title, style = MaterialTheme.typography.titleMedium)
+            Text(text = notice.hint)
+            notice.detail?.let { Text(text = it, modifier = Modifier.testTag(SetupScreenTags.CLARIFICATION_DETAIL)) }
+        }
+    }
+}
+
+@Composable
+@Preview
+private fun SetupScreenClarificationPreview() {
+    MaterialTheme {
+        SetupScreen(
+            input = SetupInput(subject = "HYPE"),
+            onInputChange = {},
+            loading = false,
+            notice =
+                SetupNotice.Clarification(
+                    title = "Please clarify the subject",
+                    hint = "Add details such as the chain, exchange or website, then analyze again.",
+                    detail = "Candidates: HYPE (Hyperliquid), HYPE (another token)",
+                ),
+            onAnalyze = { _, _, _ -> },
+            onOpenSettings = {},
+            sampleRubric = SampleRubric(title = "Demo", text = "Tieu chi 1\nTieu chi 2"),
+        )
+    }
+}
+
+@Composable
 @Preview
 private fun SetupScreenPreview() {
     MaterialTheme {
@@ -158,7 +219,7 @@ private fun SetupScreenPreview() {
             input = SetupInput(subject = "Bitcoin"),
             onInputChange = {},
             loading = false,
-            error = "Vi du thong bao loi",
+            notice = SetupNotice.Error("Vi du thong bao loi"),
             onAnalyze = { _, _, _ -> },
             onOpenSettings = {},
             sampleRubric = SampleRubric(title = "Demo", text = "Tieu chi 1\nTieu chi 2"),

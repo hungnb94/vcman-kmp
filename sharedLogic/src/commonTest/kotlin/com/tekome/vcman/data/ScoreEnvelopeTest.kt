@@ -87,6 +87,21 @@ class ScoreEnvelopeTest {
     }
 
     @Test
+    fun decodeScoreReport_knownAmbiguousSubjectsNeverYieldReport() {
+        knownAmbiguousSubjects.forEach { subject ->
+            val raw = """{"subjectName":"$subject","overallSummary":"subject=$subject","sections":[]}"""
+
+            val exception =
+                assertFailsWith<AnalysisException>(subject) {
+                    decodeScoreReport(raw, rubricTitle = "Rubric", generatedAtEpochMillis = 0L)
+                }
+
+            val error = assertIs<AnalysisError.AmbiguousSubject>(exception.error)
+            assertEquals("subject=$subject", error.explanation)
+        }
+    }
+
+    @Test
     fun decodeScoreReport_missingRequiredFieldIsInvalidResponse() {
         val raw = """{"subjectName":"X"}"""
 
