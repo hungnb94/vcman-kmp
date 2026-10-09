@@ -426,7 +426,7 @@ class AppWiringTest : ComposeUiTestRunner() {
             onNodeWithTag(SettingsScreenTags.SAVE).performScrollTo().performClick()
             waitForIdle()
             onNodeWithTag(SettingsScreenTags.SAVE_STATUS).assertExists()
-            onNodeWithTag(SettingsScreenTags.BACK).performScrollTo().performClick()
+            onNodeWithTag(SettingsScreenTags.BACK).performClick()
             waitForIdle()
 
             onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()

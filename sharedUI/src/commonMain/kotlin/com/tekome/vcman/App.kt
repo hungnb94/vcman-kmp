@@ -49,7 +49,6 @@ fun App(
             onAnalyze = { title, text, subject -> viewModel.analyze(title, text, subject, language) },
             onAnalyzeAgain = viewModel::reset,
             settingsRepository = settingsRepository,
-            modifier = Modifier.safeContentPadding(),
             onOpenSettings = viewModel::clearError,
         )
     }
@@ -69,6 +68,8 @@ internal fun AppContent(
     // Held above the NavHost so the rubric/subject survive a trip to Settings and back.
     var setupInput by rememberSaveable(stateSaver = setupInputSaver) { mutableStateOf(SetupInput()) }
 
+    val homeModifier = modifier.safeContentPadding()
+
     NavHost(navController = navController, startDestination = HomeRoute) {
         composable<HomeRoute> {
             when (uiState) {
@@ -77,7 +78,7 @@ internal fun AppContent(
                 is AnalysisUiState.Error,
                 -> {
                     SetupScreen(
-                        modifier = modifier,
+                        modifier = homeModifier,
                         input = setupInput,
                         onInputChange = { setupInput = it },
                         loading = uiState.isLoading,
@@ -93,7 +94,7 @@ internal fun AppContent(
 
                 is AnalysisUiState.Success -> {
                     ScoreReportScreen(
-                        modifier = modifier,
+                        modifier = homeModifier,
                         report = uiState.report,
                         onAnalyzeAgain = onAnalyzeAgain,
                     )

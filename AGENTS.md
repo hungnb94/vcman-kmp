@@ -93,6 +93,8 @@ Kotlin Multiplatform app (root project `Vcman`, package root `com.tekome.vcman`)
 
 **Navigation.** Navigation Compose with type-safe routes `HomeRoute` and `SettingsRoute` in `App.kt`. `SetupInput` is hoisted above the `NavHost` so it survives a trip to Settings. `ScoreAnalysisViewModel` is created in `App`, outside the `NavHost`, so an in-flight analysis is kept. `SettingsViewModel` is scoped to its back-stack entry, so unsaved edits are dropped on Back.
 
+**Window insets.** Each destination owns its insets: Home applies `safeContentPadding()` in `AppContent`, Settings lets its `Scaffold`/`TopAppBar` handle them. Do not put `safeContentPadding()` back on the root `App()`, or app bars cannot draw edge-to-edge.
+
 **Wiring (no DI yet).** Dependencies are created at the entry point and passed down — e.g. `createSettingsRepository(context)` in `MainActivity`, `createSettingsRepository()` in `MainViewController`. Entry points stay thin: wiring and bootstrap only.
 
 **`expect`/`actual` vs interface.**

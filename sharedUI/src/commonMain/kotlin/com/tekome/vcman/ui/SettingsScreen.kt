@@ -2,7 +2,9 @@ package com.tekome.vcman.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -13,12 +15,16 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -27,6 +33,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -93,28 +103,95 @@ fun SettingsScreen(
     onBack: () -> Unit,
 ) {
     var keyVisible by rememberSaveable { mutableStateOf(false) }
+
+    Scaffold(
+        modifier = modifier,
+        topBar = { SettingsTopBar(onBack = onBack) },
+    ) { innerPadding ->
+        SettingsForm(
+            innerPadding = innerPadding,
+            state = state,
+            keyVisible = keyVisible,
+            onToggleKeyVisible = { keyVisible = !keyVisible },
+            onSelectProvider = onSelectProvider,
+            onApiKeyChange = onApiKeyChange,
+            onBaseUrlChange = onBaseUrlChange,
+            onModelChange = onModelChange,
+            onSave = onSave,
+            onTestConnection = onTestConnection,
+        )
+    }
+}
+
+@Composable
+private fun SettingsTopBar(onBack: () -> Unit) {
+    TopAppBar(
+        title = {
+            Text(
+                text = stringResource(Res.string.settings_title),
+                modifier = Modifier.testTag(SettingsScreenTags.TITLE).semantics { heading() },
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = onBack, modifier = Modifier.testTag(SettingsScreenTags.BACK)) {
+                Icon(
+                    imageVector = ArrowBackIcon,
+                    contentDescription = stringResource(Res.string.settings_back),
+                )
+            }
+        },
+    )
+}
+
+private val ArrowBackIcon: ImageVector by lazy {
+    ImageVector
+        .Builder(
+            name = "ArrowBack",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+            autoMirror = true,
+        ).path(fill = SolidColor(Color.Black)) {
+            moveTo(20f, 11f)
+            horizontalLineTo(7.83f)
+            lineToRelative(5.59f, -5.59f)
+            lineTo(12f, 4f)
+            lineToRelative(-8f, 8f)
+            lineToRelative(8f, 8f)
+            lineToRelative(1.41f, -1.41f)
+            lineTo(7.83f, 13f)
+            horizontalLineTo(20f)
+            close()
+        }.build()
+}
+
+@Composable
+private fun SettingsForm(
+    innerPadding: PaddingValues,
+    state: SettingsUiState,
+    keyVisible: Boolean,
+    onToggleKeyVisible: () -> Unit,
+    onSelectProvider: (LlmProviderType) -> Unit,
+    onApiKeyChange: (String) -> Unit,
+    onBaseUrlChange: (String) -> Unit,
+    onModelChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onTestConnection: () -> Unit,
+) {
     val form = state.form
 
     Column(
         modifier =
-            modifier
+            Modifier
                 .fillMaxSize()
+                .padding(innerPadding)
+                .consumeWindowInsets(innerPadding)
                 .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack, modifier = Modifier.testTag(SettingsScreenTags.BACK)) {
-                Text(stringResource(Res.string.settings_back))
-            }
-            Text(
-                text = stringResource(Res.string.settings_title),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.testTag(SettingsScreenTags.TITLE).semantics { heading() },
-            )
-        }
-
         Text(
             stringResource(Res.string.settings_provider_label),
             style = MaterialTheme.typography.titleSmall,
@@ -149,7 +226,7 @@ fun SettingsScreen(
             masked = !keyVisible,
         )
         TextButton(
-            onClick = { keyVisible = !keyVisible },
+            onClick = onToggleKeyVisible,
             modifier = Modifier.align(Alignment.End).testTag(SettingsScreenTags.TOGGLE_KEY),
         ) {
             Text(stringResource(if (keyVisible) Res.string.settings_hide_key else Res.string.settings_show_key))
