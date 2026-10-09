@@ -8,6 +8,8 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
@@ -18,6 +20,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.dp
 import com.tekome.vcman.data.ApiKey
 import com.tekome.vcman.data.ConnectionTestResult
 import com.tekome.vcman.data.LlmProviderType
@@ -29,6 +32,7 @@ import com.tekome.vcman.presentation.SettingsForm
 import com.tekome.vcman.presentation.SettingsUiState
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @Composable
 private fun TestSettingsScreen(
@@ -186,9 +190,42 @@ class SettingsScreenTest : ComposeUiTestRunner() {
 
             onNodeWithTag(SettingsScreenTags.SAVE).performScrollTo().performClick()
             onNodeWithTag(SettingsScreenTags.TEST_CONNECTION).performScrollTo().performClick()
-            onNodeWithTag(SettingsScreenTags.BACK).performScrollTo().performClick()
+            onNodeWithTag(SettingsScreenTags.BACK).performClick()
 
             assertEquals(listOf(1, 1, 1), listOf(saves, tests, backs))
+        }
+
+    @Test
+    fun backButtonHasMinTouchTargetAndCallsOnBackOnce() =
+        runComposeUiTest {
+            var backs = 0
+            setContent { TestSettingsScreen(state, onBack = { backs++ }) }
+
+            val back = onNodeWithTag(SettingsScreenTags.BACK).assertHasClickAction()
+            val touchBounds = back.fetchSemanticsNode().touchBoundsInRoot
+            val minPx = with(density) { 48.dp.toPx() }
+            assertTrue(touchBounds.width >= minPx && touchBounds.height >= minPx, "touch target was $touchBounds")
+            back.performClick()
+
+            assertEquals(1, backs)
+        }
+
+    @Test
+    fun appBarStaysVisibleWhenFormIsScrolled() =
+        runComposeUiTest {
+            setContent { TestSettingsScreen(state) }
+
+            onNodeWithTag(SettingsScreenTags.SAVE).performScrollTo()
+
+            onNodeWithTag(SettingsScreenTags.TITLE).assertIsDisplayed()
+            onNodeWithTag(SettingsScreenTags.BACK).assertIsDisplayed()
+        }
+
+    @Test
+    fun titleIsAHeading() =
+        runComposeUiTest {
+            setContent { TestSettingsScreen(state) }
+            onNodeWithTag(SettingsScreenTags.TITLE).assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Heading))
         }
 
     @Test

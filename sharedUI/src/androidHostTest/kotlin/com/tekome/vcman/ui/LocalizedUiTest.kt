@@ -1,6 +1,7 @@
 package com.tekome.vcman.ui
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -163,6 +164,7 @@ class LocalizedUiTest : ComposeUiTestRunner() {
             )
 
             onNodeWithTag(SettingsScreenTags.TITLE).assertTextEquals("Cài đặt")
+            onNodeWithTag(SettingsScreenTags.BACK).assertContentDescriptionEquals("Quay lại")
             onNodeWithTag(SettingsScreenTags.provider(LlmProviderType.OpenAICompatible)).assertTextEquals("Tương thích OpenAI")
             onNodeWithTag(SettingsScreenTags.ERROR_PREFIX + SettingsFieldError.ApiKeyBlank.name, useUnmergedTree = true)
                 .assertTextEquals("Hãy nhập khóa API.")
@@ -176,6 +178,7 @@ class LocalizedUiTest : ComposeUiTestRunner() {
             showSettings(SettingsUiState(loaded = true, errors = setOf(SettingsFieldError.ApiKeyBlank)))
 
             onNodeWithTag(SettingsScreenTags.TITLE).assertTextEquals("Settings")
+            onNodeWithTag(SettingsScreenTags.BACK).assertContentDescriptionEquals("Back")
             onNodeWithTag(SettingsScreenTags.provider(LlmProviderType.OpenAICompatible)).assertTextEquals("OpenAI-compatible")
             onNodeWithTag(SettingsScreenTags.ERROR_PREFIX + SettingsFieldError.ApiKeyBlank.name, useUnmergedTree = true).assertTextEquals("Enter an API key.")
         }

@@ -1,7 +1,9 @@
 package com.tekome.vcman
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,14 +46,22 @@ fun App(
     MaterialTheme {
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
         val language = rememberContentLanguage()
-        AppContent(
-            uiState = uiState,
-            onAnalyze = { title, text, subject -> viewModel.analyze(title, text, subject, language) },
-            onAnalyzeAgain = viewModel::reset,
-            settingsRepository = settingsRepository,
-            modifier = Modifier.safeContentPadding(),
-            onOpenSettings = viewModel::clearError,
-        )
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            AppContent(
+                uiState = uiState,
+                onAnalyze = { title, text, subject ->
+                    viewModel.analyze(
+                        title,
+                        text,
+                        subject,
+                        language,
+                    )
+                },
+                onAnalyzeAgain = viewModel::reset,
+                settingsRepository = settingsRepository,
+                onOpenSettings = viewModel::clearError,
+            )
+        }
     }
 }
 
@@ -69,6 +79,8 @@ internal fun AppContent(
     // Held above the NavHost so the rubric/subject survive a trip to Settings and back.
     var setupInput by rememberSaveable(stateSaver = setupInputSaver) { mutableStateOf(SetupInput()) }
 
+    val homeModifier = modifier.safeContentPadding()
+
     NavHost(navController = navController, startDestination = HomeRoute) {
         composable<HomeRoute> {
             when (uiState) {
@@ -77,7 +89,7 @@ internal fun AppContent(
                 is AnalysisUiState.Error,
                 -> {
                     SetupScreen(
-                        modifier = modifier,
+                        modifier = homeModifier,
                         input = setupInput,
                         onInputChange = { setupInput = it },
                         loading = uiState.isLoading,
@@ -93,7 +105,7 @@ internal fun AppContent(
 
                 is AnalysisUiState.Success -> {
                     ScoreReportScreen(
-                        modifier = modifier,
+                        modifier = homeModifier,
                         report = uiState.report,
                         onAnalyzeAgain = onAnalyzeAgain,
                     )
@@ -101,7 +113,8 @@ internal fun AppContent(
             }
         }
         composable<SettingsRoute> {
-            val settingsViewModel = viewModel { SettingsViewModel(settingsRepository, connectionTester) }
+            val settingsViewModel =
+                viewModel { SettingsViewModel(settingsRepository, connectionTester) }
             val state by settingsViewModel.uiState.collectAsStateWithLifecycle()
             SettingsScreen(
                 modifier = modifier,
