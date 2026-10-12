@@ -16,10 +16,10 @@ import kotlin.reflect.KClass
 
 interface AppGraph : ViewModelGraph {
     @Provides
-    fun provideConnectionTester(): ConnectionTester = LlmConnectionTester()
+    private fun provideConnectionTester(): ConnectionTester = LlmConnectionTester()
 
     @Provides
-    fun provideScoreAnalysisService(): ScoreAnalysisService = KoogScoreAnalysisService()
+    private fun provideScoreAnalysisService(): ScoreAnalysisService = KoogScoreAnalysisService()
 }
 
 @Inject

@@ -45,7 +45,7 @@ fun AppRoot(viewModelFactory: MetroViewModelFactory) {
 }
 
 @Composable
-fun App(viewModel: ScoreAnalysisViewModel = metroViewModel()) {
+internal fun App(viewModel: ScoreAnalysisViewModel = metroViewModel()) {
     MaterialTheme {
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
         val language = rememberContentLanguage()
