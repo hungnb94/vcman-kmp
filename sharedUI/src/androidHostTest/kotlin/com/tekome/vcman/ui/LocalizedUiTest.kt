@@ -67,7 +67,6 @@ class LocalizedUiTest : ComposeUiTestRunner() {
                 uiState = AnalysisUiState.Error(AnalysisFailure.Api(401)),
                 onAnalyze = { _, _, _ -> },
                 onAnalyzeAgain = {},
-                settingsRepository = InMemorySettingsRepository(),
             )
         }
         waitForIdle()
@@ -192,7 +191,6 @@ class LocalizedUiTest : ComposeUiTestRunner() {
                     uiState = AnalysisUiState.Error(AnalysisFailure.NotConfigured),
                     onAnalyze = { _, _, _ -> },
                     onAnalyzeAgain = {},
-                    settingsRepository = InMemorySettingsRepository(),
                 )
             }
             waitForIdle()
@@ -211,7 +209,6 @@ class LocalizedUiTest : ComposeUiTestRunner() {
                     uiState = AnalysisUiState.Error(AnalysisFailure.NotConfigured),
                     onAnalyze = { _, _, _ -> },
                     onAnalyzeAgain = {},
-                    settingsRepository = InMemorySettingsRepository(),
                 )
             }
             waitForIdle()

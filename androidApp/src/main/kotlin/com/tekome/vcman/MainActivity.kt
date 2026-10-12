@@ -8,17 +8,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
-import com.tekome.vcman.data.createSettingsRepository
+import com.tekome.vcman.di.createAppGraph
 
 class MainActivity : ComponentActivity() {
-    private val settingsRepository by lazy { createSettingsRepository(applicationContext) }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
+        val appGraph = (application as VcmanApplication).appGraph
         setContent {
-            App(settingsRepository)
+            AppRoot(appGraph.metroViewModelFactory)
         }
     }
 }
@@ -27,5 +26,5 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppAndroidPreview() {
     val context = LocalContext.current
-    App(remember { createSettingsRepository(context) })
+    AppRoot(remember { createAppGraph(context) }.metroViewModelFactory)
 }

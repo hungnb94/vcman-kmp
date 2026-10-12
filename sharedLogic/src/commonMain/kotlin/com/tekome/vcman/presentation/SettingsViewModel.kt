@@ -12,6 +12,10 @@ import com.tekome.vcman.data.SettingsFieldError
 import com.tekome.vcman.data.SettingsRepository
 import com.tekome.vcman.data.isInsecureRemote
 import com.tekome.vcman.data.validate
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -81,6 +85,9 @@ data class SettingsUiState(
     val insecureWarning: Boolean get() = isInsecureRemote(form.baseUrl)
 }
 
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class)
 class SettingsViewModel(
     private val repository: SettingsRepository,
     private val connectionTester: ConnectionTester = LlmConnectionTester(),

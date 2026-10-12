@@ -1,8 +1,8 @@
 package com.tekome.vcman
 
 import androidx.compose.ui.window.ComposeUIViewController
-import com.tekome.vcman.data.createSettingsRepository
+import com.tekome.vcman.di.createAppGraph
 
-private val settingsRepository by lazy { createSettingsRepository() }
+private val appGraph by lazy { createAppGraph() }
 
-fun MainViewController() = ComposeUIViewController { App(settingsRepository) }
+fun MainViewController() = ComposeUIViewController { AppRoot(appGraph.metroViewModelFactory) }

@@ -5,21 +5,17 @@ import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.tekome.vcman.data.ConnectionTester
-import com.tekome.vcman.data.LlmConnectionTester
-import com.tekome.vcman.data.SettingsRepository
 import com.tekome.vcman.presentation.AnalysisFailure
 import com.tekome.vcman.presentation.AnalysisUiState
 import com.tekome.vcman.presentation.ScoreAnalysisViewModel
@@ -30,6 +26,9 @@ import com.tekome.vcman.ui.SetupInput
 import com.tekome.vcman.ui.SetupScreen
 import com.tekome.vcman.ui.asText
 import com.tekome.vcman.ui.rememberContentLanguage
+import dev.zacsweers.metrox.viewmodel.MetroViewModelFactory
+import dev.zacsweers.metrox.viewmodel.LocalMetroViewModelFactory
+import dev.zacsweers.metrox.viewmodel.metroViewModel
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -39,10 +38,14 @@ internal data object HomeRoute
 internal data object SettingsRoute
 
 @Composable
-fun App(
-    settingsRepository: SettingsRepository,
-    viewModel: ScoreAnalysisViewModel = viewModel { ScoreAnalysisViewModel(settingsRepository) },
-) {
+fun AppRoot(viewModelFactory: MetroViewModelFactory) {
+    CompositionLocalProvider(LocalMetroViewModelFactory provides viewModelFactory) {
+        App()
+    }
+}
+
+@Composable
+fun App(viewModel: ScoreAnalysisViewModel = metroViewModel()) {
     MaterialTheme {
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
         val language = rememberContentLanguage()
@@ -58,7 +61,6 @@ fun App(
                     )
                 },
                 onAnalyzeAgain = viewModel::reset,
-                settingsRepository = settingsRepository,
                 onOpenSettings = viewModel::clearError,
             )
         }
@@ -70,10 +72,8 @@ internal fun AppContent(
     uiState: AnalysisUiState,
     onAnalyze: (rubricTitle: String, rubricText: String, subject: String) -> Unit,
     onAnalyzeAgain: () -> Unit,
-    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
     onOpenSettings: () -> Unit = {},
-    connectionTester: ConnectionTester = remember { LlmConnectionTester() },
 ) {
     val navController = rememberNavController()
     // Held above the NavHost so the rubric/subject survive a trip to Settings and back.
@@ -113,8 +113,7 @@ internal fun AppContent(
             }
         }
         composable<SettingsRoute> {
-            val settingsViewModel =
-                viewModel { SettingsViewModel(settingsRepository, connectionTester) }
+            val settingsViewModel: SettingsViewModel = metroViewModel()
             val state by settingsViewModel.uiState.collectAsStateWithLifecycle()
             SettingsScreen(
                 modifier = modifier,
