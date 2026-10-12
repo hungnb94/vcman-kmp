@@ -26,8 +26,8 @@ import com.tekome.vcman.ui.SetupInput
 import com.tekome.vcman.ui.SetupScreen
 import com.tekome.vcman.ui.asText
 import com.tekome.vcman.ui.rememberContentLanguage
-import dev.zacsweers.metrox.viewmodel.MetroViewModelFactory
 import dev.zacsweers.metrox.viewmodel.LocalMetroViewModelFactory
+import dev.zacsweers.metrox.viewmodel.MetroViewModelFactory
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import kotlinx.serialization.Serializable
 

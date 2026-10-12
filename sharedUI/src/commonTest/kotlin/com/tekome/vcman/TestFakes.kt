@@ -1,9 +1,9 @@
 package com.tekome.vcman
 
+import androidx.lifecycle.ViewModel
 import com.tekome.vcman.data.ApiKey
 import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.LlmSettings
-import androidx.lifecycle.ViewModel
 import com.tekome.vcman.data.SettingsRepository
 import dev.zacsweers.metrox.viewmodel.MetroViewModelFactory
 import kotlin.reflect.KClass

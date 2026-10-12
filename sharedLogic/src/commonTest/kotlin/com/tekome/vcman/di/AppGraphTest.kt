@@ -13,7 +13,6 @@ import dev.zacsweers.metro.createGraph
 import kotlin.reflect.KClass
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 
@@ -39,7 +38,6 @@ class AppGraphTest {
         graph.viewModelProviders.keys.forEach { type ->
             val viewModel = graph.metroViewModelFactory.create(type, CreationExtras.Empty)
 
-            assertIs<Any>(viewModel)
             assertEquals(type, viewModel::class)
         }
     }
