@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.tekome.vcman.data.ApiKey
 import com.tekome.vcman.data.ConnectionTestResult
 import com.tekome.vcman.data.ConnectionTester
-import com.tekome.vcman.data.LlmConnectionTester
 import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.LlmSettings
 import com.tekome.vcman.data.SettingsFieldError
@@ -90,7 +89,7 @@ data class SettingsUiState(
 @ContributesIntoMap(AppScope::class)
 class SettingsViewModel(
     private val repository: SettingsRepository,
-    private val connectionTester: ConnectionTester = LlmConnectionTester(),
+    private val connectionTester: ConnectionTester,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()

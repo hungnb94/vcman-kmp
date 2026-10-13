@@ -102,7 +102,7 @@ Kotlin Multiplatform app (root project `Vcman`, package root `com.tekome.vcman`)
 - Entry points call the plain per-platform function `createAppGraph(context)` / `createAppGraph()` and pass `graph.metroViewModelFactory` to `AppRoot` (`sharedUI`), which provides `LocalMetroViewModelFactory` and calls `App`. On Android the graph lives in `VcmanApplication` so it survives Activity recreation. `createGraph*` calls are compiler intrinsics: keep them in `sharedLogic`, not in `androidApp`/`sharedUI`.
 - **Add a ViewModel** = put `@Inject @ViewModelKey @ContributesIntoMap(AppScope::class)` on the class and call `metroViewModel<X>()` in its screen. **Add a shared dependency** = one `@Provides` in `AppGraph`; platform-specific ones go in the platform graph. No change to entry points.
 - `createSettingsRepository(...)` is `internal`: only the platform graph calls it.
-- ViewModels keep default constructor arguments for direct construction in tests; the graph binds every dependency explicitly.
+- Injected constructors have no default arguments: Metro silently falls back to a default when a binding is missing, which would hide the `[Metro/MissingBinding]` compile error. Tests pass fakes explicitly.
 
 **`expect`/`actual` vs interface.**
 - `expect`/`actual` for small, stateless platform facts or platform singletons, where the compiler must force every target to implement it (e.g. `Platform.kt`). Factories whose signatures differ per platform are plain per-platform functions instead (e.g. `createSettingsRepository(context)` in `androidMain`, `createSettingsRepository()` in `iosMain`, `createAppGraph(context)` / `createAppGraph()`).

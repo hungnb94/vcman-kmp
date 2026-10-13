@@ -18,6 +18,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.text.AnnotatedString
+import com.tekome.vcman.data.ConnectionTester
 import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.LlmRequestConfig
 import com.tekome.vcman.data.ScoreAnalysisService
@@ -208,7 +209,7 @@ private fun AppWithSettings(
 ) {
     CompositionLocalProvider(
         LocalMetroViewModelFactory provides
-            TestViewModelFactory(SettingsViewModel::class to { SettingsViewModel(repository) }),
+            TestViewModelFactory(SettingsViewModel::class to { SettingsViewModel(repository, unusedConnectionTester) }),
     ) {
         App(viewModel = viewModel)
     }
@@ -472,3 +473,5 @@ class AppWiringTest : ComposeUiTestRunner() {
                 .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("")))
         }
 }
+
+private val unusedConnectionTester = ConnectionTester { error("Connection test is not exercised by AppWiringTest") }
