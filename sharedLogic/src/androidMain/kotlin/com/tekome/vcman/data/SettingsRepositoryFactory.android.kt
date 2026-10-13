@@ -11,7 +11,7 @@ private val Context.llmPreferences by preferencesDataStore(name = "vcman_llm_set
 private val Context.llmSecrets by preferencesDataStore(name = "vcman_llm_secrets")
 
 @OptIn(ExperimentalSettingsApi::class)
-fun createSettingsRepository(context: Context): SettingsRepository {
+internal fun createSettingsRepository(context: Context): SettingsRepository {
     val appContext = context.applicationContext
     val keys = AndroidKeystoreKeyProvider()
     return StoredSettingsRepository(

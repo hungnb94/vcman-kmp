@@ -10,7 +10,7 @@ import platform.Foundation.NSUserDefaults
 private const val KEYCHAIN_SERVICE = "com.tekome.vcman.llm"
 
 @OptIn(ExperimentalSettingsImplementation::class, ExperimentalSettingsApi::class)
-fun createSettingsRepository(): SettingsRepository =
+internal fun createSettingsRepository(): SettingsRepository =
     StoredSettingsRepository(
         prefs = NSUserDefaultsSettings(NSUserDefaults.standardUserDefaults).toSuspendSettings(),
         secrets = SettingsSecretStore(KeychainSettings(service = KEYCHAIN_SERVICE).toSuspendSettings()),

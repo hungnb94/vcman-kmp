@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.kotlinxSerialization)
+    alias(libs.plugins.metro)
 }
 
 kotlin {
@@ -46,6 +47,8 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(libs.androidx.lifecycle.viewmodel)
+            api(libs.metrox.viewmodel)
+            implementation(libs.metro.runtime)
             implementation(libs.koog.agents)
             implementation(libs.koog.promptExecutor.anthropicClient)
             implementation(libs.koog.promptExecutor.openaiClient)

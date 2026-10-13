@@ -1,5 +1,7 @@
 package com.tekome.vcman
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -16,6 +18,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.text.AnnotatedString
+import com.tekome.vcman.data.ConnectionTester
 import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.LlmRequestConfig
 import com.tekome.vcman.data.ScoreAnalysisService
@@ -25,10 +28,12 @@ import com.tekome.vcman.domain.RubricInput
 import com.tekome.vcman.presentation.AnalysisFailure
 import com.tekome.vcman.presentation.AnalysisUiState
 import com.tekome.vcman.presentation.ScoreAnalysisViewModel
+import com.tekome.vcman.presentation.SettingsViewModel
 import com.tekome.vcman.ui.ComposeUiTestRunner
 import com.tekome.vcman.ui.ScoreReportScreenTags
 import com.tekome.vcman.ui.SettingsScreenTags
 import com.tekome.vcman.ui.SetupScreenTags
+import dev.zacsweers.metrox.viewmodel.LocalMetroViewModelFactory
 import kotlinx.coroutines.CompletableDeferred
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -76,7 +81,6 @@ class AppContentTest : ComposeUiTestRunner() {
                     uiState = AnalysisUiState.Idle,
                     onAnalyze = { title, text, subject -> calls += listOf(title, text, subject) },
                     onAnalyzeAgain = {},
-                    settingsRepository = InMemorySettingsRepository(),
                 )
             }
 
@@ -99,7 +103,6 @@ class AppContentTest : ComposeUiTestRunner() {
                     uiState = AnalysisUiState.Loading,
                     onAnalyze = { _, _, _ -> },
                     onAnalyzeAgain = {},
-                    settingsRepository = InMemorySettingsRepository(),
                 )
             }
 
@@ -115,7 +118,6 @@ class AppContentTest : ComposeUiTestRunner() {
                     uiState = AnalysisUiState.Error(AnalysisFailure.AmbiguousSubject("Rate limited")),
                     onAnalyze = { _, _, _ -> },
                     onAnalyzeAgain = {},
-                    settingsRepository = InMemorySettingsRepository(),
                 )
             }
 
@@ -132,7 +134,6 @@ class AppContentTest : ComposeUiTestRunner() {
                     uiState = AnalysisUiState.Success(fixtureReport),
                     onAnalyze = { _, _, _ -> },
                     onAnalyzeAgain = {},
-                    settingsRepository = InMemorySettingsRepository(),
                 )
             }
 
@@ -149,7 +150,6 @@ class AppContentTest : ComposeUiTestRunner() {
                     uiState = AnalysisUiState.Success(fixtureReport),
                     onAnalyze = { _, _, _ -> },
                     onAnalyzeAgain = { calls++ },
-                    settingsRepository = InMemorySettingsRepository(),
                 )
             }
 
@@ -170,7 +170,6 @@ class AppContentTest : ComposeUiTestRunner() {
                         analyzeCalls += listOf(title, text, subject)
                     },
                     onAnalyzeAgain = { state = AnalysisUiState.Idle },
-                    settingsRepository = InMemorySettingsRepository(),
                 )
             }
 
@@ -201,6 +200,19 @@ class AppContentTest : ComposeUiTestRunner() {
 
             assertEquals(listOf("T", "Body", "Bitcoin"), analyzeCalls.single())
         }
+}
+
+@Composable
+private fun AppWithSettings(
+    repository: InMemorySettingsRepository,
+    viewModel: ScoreAnalysisViewModel,
+) {
+    CompositionLocalProvider(
+        LocalMetroViewModelFactory provides
+            TestViewModelFactory(SettingsViewModel::class to { SettingsViewModel(repository, unusedConnectionTester) }),
+    ) {
+        App(viewModel = viewModel)
+    }
 }
 
 @OptIn(ExperimentalTestApi::class)
@@ -258,7 +270,7 @@ class AppWiringTest : ComposeUiTestRunner() {
         runComposeUiTest {
             val repository = InMemorySettingsRepository(configuredSettings())
             setContent {
-                App(repository, viewModel = ScoreAnalysisViewModel(repository, NeverCalledService()))
+                AppWithSettings(repository, ScoreAnalysisViewModel(repository, NeverCalledService()))
             }
 
             onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
@@ -272,7 +284,7 @@ class AppWiringTest : ComposeUiTestRunner() {
         runComposeUiTest {
             val repository = InMemorySettingsRepository(settings = null)
             setContent {
-                App(repository, viewModel = ScoreAnalysisViewModel(repository, NeverCalledService()))
+                AppWithSettings(repository, ScoreAnalysisViewModel(repository, NeverCalledService()))
             }
 
             fillRubric()
@@ -289,7 +301,7 @@ class AppWiringTest : ComposeUiTestRunner() {
             val deferred = CompletableDeferred<Result<ProjectScoreReport>>()
             val repository = InMemorySettingsRepository(configuredSettings())
             setContent {
-                App(repository, viewModel = ScoreAnalysisViewModel(repository, DeferredService(deferred)))
+                AppWithSettings(repository, ScoreAnalysisViewModel(repository, DeferredService(deferred)))
             }
 
             fillRubric()
@@ -314,7 +326,7 @@ class AppWiringTest : ComposeUiTestRunner() {
             val service = RecordingService(listOf(firstResult, secondResult))
             val repository = InMemorySettingsRepository(configuredSettings())
             setContent {
-                App(repository, viewModel = ScoreAnalysisViewModel(repository, service))
+                AppWithSettings(repository, ScoreAnalysisViewModel(repository, service))
             }
 
             fillRubric()
@@ -353,7 +365,7 @@ class AppWiringTest : ComposeUiTestRunner() {
             val repository = InMemorySettingsRepository()
             val service = RecordingService(emptyList())
             setContent {
-                App(repository, viewModel = ScoreAnalysisViewModel(repository, service))
+                AppWithSettings(repository, ScoreAnalysisViewModel(repository, service))
             }
 
             fillRubric()
@@ -370,7 +382,7 @@ class AppWiringTest : ComposeUiTestRunner() {
         runComposeUiTest {
             val repository = InMemorySettingsRepository()
             setContent {
-                App(repository, viewModel = ScoreAnalysisViewModel(repository, RecordingService(emptyList())))
+                AppWithSettings(repository, ScoreAnalysisViewModel(repository, RecordingService(emptyList())))
             }
             fillRubric()
             onNodeWithTag(SetupScreenTags.ANALYZE).performScrollTo().performClick()
@@ -390,7 +402,7 @@ class AppWiringTest : ComposeUiTestRunner() {
         runComposeUiTest {
             val repository = InMemorySettingsRepository()
             setContent {
-                App(repository, viewModel = ScoreAnalysisViewModel(repository, NeverCalledService()))
+                AppWithSettings(repository, ScoreAnalysisViewModel(repository, NeverCalledService()))
             }
             fillRubric()
 
@@ -415,7 +427,7 @@ class AppWiringTest : ComposeUiTestRunner() {
             val service = RecordingService(listOf(result))
             val repository = InMemorySettingsRepository()
             setContent {
-                App(repository, viewModel = ScoreAnalysisViewModel(repository, service))
+                AppWithSettings(repository, ScoreAnalysisViewModel(repository, service))
             }
             fillRubric()
 
@@ -439,4 +451,27 @@ class AppWiringTest : ComposeUiTestRunner() {
             assertEquals(settings, repository.settings)
             result.complete(Result.success(fixtureReport))
         }
+
+    @Test
+    fun settings_unsavedEditsAreDropped_whenBackAndReopened() =
+        runComposeUiTest {
+            val repository = InMemorySettingsRepository()
+            setContent {
+                AppWithSettings(repository, ScoreAnalysisViewModel(repository, NeverCalledService()))
+            }
+
+            onNodeWithTag(SetupScreenTags.OPEN_SETTINGS).performClick()
+            waitForIdle()
+            onNodeWithTag(SettingsScreenTags.API_KEY).performTextInput("sk-unsaved")
+            onNodeWithTag(SettingsScreenTags.BACK).performClick()
+            waitForIdle()
+
+            onNodeWithTag(SetupScreenTags.OPEN_SETTINGS).performClick()
+            waitForIdle()
+
+            onNodeWithTag(SettingsScreenTags.API_KEY)
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("")))
+        }
 }
+
+private val unusedConnectionTester = ConnectionTester { error("Connection test is not exercised by AppWiringTest") }

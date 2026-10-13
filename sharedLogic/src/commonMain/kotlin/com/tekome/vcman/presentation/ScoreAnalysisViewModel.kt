@@ -2,13 +2,16 @@ package com.tekome.vcman.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.tekome.vcman.data.KoogScoreAnalysisService
 import com.tekome.vcman.data.LlmRequestConfig
 import com.tekome.vcman.data.ScoreAnalysisService
 import com.tekome.vcman.data.SettingsRepository
 import com.tekome.vcman.data.validate
 import com.tekome.vcman.domain.LanguageTag
 import com.tekome.vcman.domain.RubricInput
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,9 +19,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class)
 class ScoreAnalysisViewModel(
     private val settingsRepository: SettingsRepository,
-    private val service: ScoreAnalysisService = KoogScoreAnalysisService(),
+    private val service: ScoreAnalysisService,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<AnalysisUiState>(AnalysisUiState.Idle)
     val uiState: StateFlow<AnalysisUiState> = _uiState.asStateFlow()

@@ -9,7 +9,6 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.v2.runComposeUiTest
 import com.tekome.vcman.AppContent
-import com.tekome.vcman.InMemorySettingsRepository
 import com.tekome.vcman.data.ConnectionTestResult
 import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.SettingsFieldError
@@ -67,7 +66,6 @@ class LocalizedUiTest : ComposeUiTestRunner() {
                 uiState = AnalysisUiState.Error(AnalysisFailure.Api(401)),
                 onAnalyze = { _, _, _ -> },
                 onAnalyzeAgain = {},
-                settingsRepository = InMemorySettingsRepository(),
             )
         }
         waitForIdle()
@@ -192,7 +190,6 @@ class LocalizedUiTest : ComposeUiTestRunner() {
                     uiState = AnalysisUiState.Error(AnalysisFailure.NotConfigured),
                     onAnalyze = { _, _, _ -> },
                     onAnalyzeAgain = {},
-                    settingsRepository = InMemorySettingsRepository(),
                 )
             }
             waitForIdle()
@@ -211,7 +208,6 @@ class LocalizedUiTest : ComposeUiTestRunner() {
                     uiState = AnalysisUiState.Error(AnalysisFailure.NotConfigured),
                     onAnalyze = { _, _, _ -> },
                     onAnalyzeAgain = {},
-                    settingsRepository = InMemorySettingsRepository(),
                 )
             }
             waitForIdle()
