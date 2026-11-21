@@ -33,7 +33,7 @@ class KoogScoreAnalysisService internal constructor(
             val raw =
                 try {
                     chat.complete(
-                        systemPrompt = promptBuilder.buildSystemPrompt(rubric),
+                        systemPrompt = promptBuilder.buildSystemPrompt(rubric, webSearchAvailable = search != null),
                         userPrompt = promptBuilder.buildUserPrompt(subjectQuery, outputLanguage),
                         tools = listOfNotNull(search),
                     )

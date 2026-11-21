@@ -21,7 +21,10 @@ class KoogScoreAnalysisServiceTest {
 
     private val fakePromptBuilder =
         object : PromptBuilder {
-            override fun buildSystemPrompt(rubric: RubricInput): String = "SYSTEM:${rubric.title}"
+            override fun buildSystemPrompt(
+                rubric: RubricInput,
+                webSearchAvailable: Boolean,
+            ): String = "SYSTEM:${rubric.title}:search=$webSearchAvailable"
 
             override fun buildUserPrompt(
                 subjectQuery: String,
@@ -213,6 +216,26 @@ class KoogScoreAnalysisServiceTest {
     private val firecrawlConfig = requestConfig(searchTool = WebSearchToolConfig.Firecrawl(ApiKey("firecrawl-key")))
 
     @Test
+    fun analyze_tellsPromptBuilderWhetherSearchIsAttached() =
+        runTest {
+            var capturedSystem: String? = null
+            val service =
+                serviceWith(
+                    resolver = {
+                        LlmChat { system, _, _ ->
+                            capturedSystem = system
+                            validEnvelope
+                        }
+                    },
+                    searchToolResolver = { WebSearchTool { emptyList() } },
+                )
+
+            service.analyze(rubric, "Acme", firecrawlConfig, LanguageTag.Default)
+
+            assertEquals("SYSTEM:Rubric:search=true", capturedSystem)
+        }
+
+    @Test
     fun analyze_withoutSearchToolReportIsNotFlaggedSkipped() =
         runTest {
             val result = serviceWith({ LlmChat { _, _, _ -> validEnvelope } }).analyze(rubric, "Acme", requestConfig(), LanguageTag.Default)
@@ -279,7 +302,7 @@ class KoogScoreAnalysisServiceTest {
 
             service.analyze(rubric, "Acme Query", requestConfig(), LanguageTag.parse("vi"))
 
-            assertEquals("SYSTEM:Rubric", capturedSystem)
+            assertEquals("SYSTEM:Rubric:search=false", capturedSystem)
             assertEquals("USER:vi:Acme Query", capturedUser)
         }
 }
