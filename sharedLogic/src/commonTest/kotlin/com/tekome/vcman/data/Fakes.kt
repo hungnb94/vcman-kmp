@@ -4,6 +4,7 @@ internal class FakeSettingsRepository(
     var settings: LlmSettings? = null,
     var failOnSave: Boolean = false,
     var failOnLoad: Boolean = false,
+    var webSearch: WebSearchSettings = WebSearchSettings.Off,
 ) : SettingsRepository {
     var saveCount = 0
         private set
@@ -17,6 +18,16 @@ internal class FakeSettingsRepository(
         if (failOnSave) error("save failed")
         saveCount++
         this.settings = settings
+    }
+
+    override suspend fun loadWebSearch(): WebSearchSettings {
+        if (failOnLoad) error("load failed")
+        return webSearch
+    }
+
+    override suspend fun saveWebSearch(settings: WebSearchSettings) {
+        if (failOnSave) error("save failed")
+        webSearch = settings
     }
 }
 

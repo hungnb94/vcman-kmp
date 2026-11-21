@@ -8,6 +8,7 @@ import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.LlmSettings
 import com.tekome.vcman.data.SettingsFieldError
 import com.tekome.vcman.data.SettingsRepository
+import com.tekome.vcman.data.WebSearchSettings
 import com.tekome.vcman.data.validSettings
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -88,6 +89,10 @@ class SettingsViewModelTest {
                 }
 
                 override suspend fun save(settings: LlmSettings) = Unit
+
+                override suspend fun loadWebSearch(): WebSearchSettings = WebSearchSettings.Off
+
+                override suspend fun saveWebSearch(settings: WebSearchSettings) = Unit
             }
         val vm = SettingsViewModel(repository, FakeTester())
 
