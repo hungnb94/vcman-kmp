@@ -274,6 +274,19 @@ class ScoreReportScreenTest : ComposeUiTestRunner() {
         }
 
     @Test
+    fun webSearchSkippedWarning_isShownOnlyWhenSearchFailed() =
+        runComposeUiTest {
+            var report by mutableStateOf(reportWith(listOf(1)))
+            setContent { ScoreReportScreen(report = report, onAnalyzeAgain = {}) }
+
+            onNodeWithTag(ScoreReportScreenTags.WEB_SEARCH_SKIPPED).assertDoesNotExist()
+
+            report = report.copy(webSearchSkipped = true)
+
+            onNodeWithTag(ScoreReportScreenTags.WEB_SEARCH_SKIPPED).assertExists()
+        }
+
+    @Test
     fun blankSourceUrl_rendersNoSourceLink() =
         runComposeUiTest {
             val base = reportWith(listOf(1))

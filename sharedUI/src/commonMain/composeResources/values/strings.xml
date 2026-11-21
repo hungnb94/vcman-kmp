@@ -15,6 +15,7 @@
     <string name="report_source">Source</string>
     <string name="report_field_line">%1$s: %2$s</string>
     <string name="report_score_fraction">%1$s / %2$s</string>
+    <string name="report_web_search_skipped">Web search failed during this analysis, so some scores may rely only on what the AI already knows.</string>
     <string name="report_question_title">%1$s. %2$s</string>
     <string name="error_missing_fields">Please fill in: %1$s.</string>
     <string name="error_network">Network problem. Check your connection and try again.</string>

@@ -41,6 +41,8 @@ data class ProjectScoreReport(
     val overallSummary: String,
     val sections: List<ScoreSectionResult>,
     val generatedAtEpochMillis: Long,
+    /** At least one web search failed transiently; some scores may rest on the model's own knowledge only. */
+    val webSearchSkipped: Boolean = false,
 ) {
     val grandTotal: Double
         get() = sections.sumOf { it.total }

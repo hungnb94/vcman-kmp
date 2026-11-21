@@ -46,6 +46,7 @@ import vcman.sharedui.generated.resources.report_raw_score
 import vcman.sharedui.generated.resources.report_score_fraction
 import vcman.sharedui.generated.resources.report_source
 import vcman.sharedui.generated.resources.report_weight
+import vcman.sharedui.generated.resources.report_web_search_skipped
 import vcman.sharedui.generated.resources.report_weighted
 import kotlin.math.abs
 import kotlin.math.roundToLong
@@ -56,6 +57,7 @@ internal object ScoreReportScreenTags {
     const val HEADER_SCORE = "score_report_header_score"
     const val HEADER_PROGRESS = "score_report_header_progress"
     const val HEADER_SUMMARY = "score_report_header_summary"
+    const val WEB_SEARCH_SKIPPED = "score_report_web_search_skipped"
     const val ANALYZE_AGAIN = "score_report_analyze_again"
 
     fun section(sectionIndex: Int) = "score_report_section_$sectionIndex"
@@ -189,6 +191,14 @@ private fun ReportHeader(
             report.overallSummary,
             modifier = Modifier.testTag(ScoreReportScreenTags.HEADER_SUMMARY),
         )
+        if (report.webSearchSkipped) {
+            Text(
+                stringResource(Res.string.report_web_search_skipped),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp).testTag(ScoreReportScreenTags.WEB_SEARCH_SKIPPED),
+            )
+        }
     }
 }
 

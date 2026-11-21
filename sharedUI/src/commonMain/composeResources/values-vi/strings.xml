@@ -15,6 +15,7 @@
     <string name="report_source">Nguồn</string>
     <string name="report_field_line">%1$s: %2$s</string>
     <string name="report_score_fraction">%1$s / %2$s</string>
+    <string name="report_web_search_skipped">Tìm kiếm web bị lỗi trong lần phân tích này, nên một số điểm có thể chỉ dựa trên kiến thức sẵn có của AI.</string>
     <string name="report_question_title">%1$s. %2$s</string>
     <string name="error_missing_fields">Vui lòng nhập: %1$s.</string>
     <string name="error_network">Lỗi mạng. Hãy kiểm tra kết nối và thử lại.</string>
