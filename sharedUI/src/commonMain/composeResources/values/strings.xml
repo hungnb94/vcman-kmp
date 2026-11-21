@@ -51,6 +51,12 @@
     <string name="settings_connection_api">The server returned an error.</string>
     <string name="settings_connection_api_status">The server returned an error (HTTP %1$d).</string>
     <string name="settings_connection_unexpected">Connection test failed.</string>
+    <string name="settings_web_search_heading">Web search</string>
+    <string name="settings_web_search_key_label">Firecrawl API key</string>
+    <string name="settings_web_search_key_hint">Optional. Lets the AI check facts on the web. Leave blank to turn web search off.</string>
+    <string name="settings_show_web_search_key">Show Firecrawl key</string>
+    <string name="settings_hide_web_search_key">Hide Firecrawl key</string>
+    <string name="settings_test_web_search_key">Test Firecrawl key</string>
     <string name="decimal_separator">.</string>
     <string name="content_language_tag">en</string>
 </resources>

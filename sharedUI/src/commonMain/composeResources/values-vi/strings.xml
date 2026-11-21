@@ -51,6 +51,12 @@
     <string name="settings_connection_api">Máy chủ trả về lỗi.</string>
     <string name="settings_connection_api_status">Máy chủ trả về lỗi (HTTP %1$d).</string>
     <string name="settings_connection_unexpected">Kiểm tra kết nối thất bại.</string>
+    <string name="settings_web_search_heading">Tìm kiếm web</string>
+    <string name="settings_web_search_key_label">Khóa API Firecrawl</string>
+    <string name="settings_web_search_key_hint">Tùy chọn. Cho phép AI kiểm chứng thông tin trên web. Để trống để tắt tìm kiếm web.</string>
+    <string name="settings_show_web_search_key">Hiện khóa Firecrawl</string>
+    <string name="settings_hide_web_search_key">Ẩn khóa Firecrawl</string>
+    <string name="settings_test_web_search_key">Kiểm tra khóa Firecrawl</string>
     <string name="decimal_separator">,</string>
     <string name="content_language_tag">vi</string>
 </resources>

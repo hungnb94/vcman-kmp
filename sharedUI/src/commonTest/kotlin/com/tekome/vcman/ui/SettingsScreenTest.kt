@@ -41,8 +41,10 @@ private fun TestSettingsScreen(
     onApiKeyChange: (String) -> Unit = {},
     onBaseUrlChange: (String) -> Unit = {},
     onModelChange: (String) -> Unit = {},
+    onWebSearchKeyChange: (String) -> Unit = {},
     onSave: () -> Unit = {},
     onTestConnection: () -> Unit = {},
+    onTestWebSearchKey: () -> Unit = {},
     onBack: () -> Unit = {},
 ) = SettingsScreen(
     state = state,
@@ -50,8 +52,10 @@ private fun TestSettingsScreen(
     onApiKeyChange = onApiKeyChange,
     onBaseUrlChange = onBaseUrlChange,
     onModelChange = onModelChange,
+    onWebSearchKeyChange = onWebSearchKeyChange,
     onSave = onSave,
     onTestConnection = onTestConnection,
+    onTestWebSearchKey = onTestWebSearchKey,
     onBack = onBack,
 )
 
@@ -283,5 +287,55 @@ class SettingsScreenTest : ComposeUiTestRunner() {
                 waitForIdle()
                 onNodeWithTag(SettingsScreenTags.CONNECTION_STATUS).performScrollTo().assertExists()
             }
+        }
+
+    @Test
+    fun webSearchKeyIsMaskedAndForwardsEdits() =
+        runComposeUiTest {
+            val typed = mutableListOf<String>()
+            setContent { TestSettingsScreen(state.copy(webSearchKey = ApiKey("fc-1")), onWebSearchKeyChange = { typed += it }) }
+
+            val field = onNodeWithTag(SettingsScreenTags.WEB_SEARCH_KEY).performScrollTo()
+            field.assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Password))
+            field.performTextReplacement("fc-2")
+
+            assertEquals(listOf("fc-2"), typed)
+        }
+
+    @Test
+    fun webSearchKeyToggleRevealsTheKey() =
+        runComposeUiTest {
+            setContent { TestSettingsScreen(state.copy(webSearchKey = ApiKey("fc-1"))) }
+
+            onNodeWithTag(SettingsScreenTags.TOGGLE_WEB_SEARCH_KEY).performScrollTo().performClick()
+
+            onNodeWithTag(SettingsScreenTags.WEB_SEARCH_KEY).assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Password))
+            onNodeWithTag(SettingsScreenTags.API_KEY).assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Password))
+        }
+
+    @Test
+    fun testWebSearchKeyButtonIsDisabledForBlankKey() =
+        runComposeUiTest {
+            setContent { TestSettingsScreen(state.copy(webSearchKey = ApiKey("  "))) }
+
+            onNodeWithTag(SettingsScreenTags.TEST_WEB_SEARCH_KEY).performScrollTo().assertIsNotEnabled()
+        }
+
+    @Test
+    fun testWebSearchKeyButtonInvokesCallbackAndShowsResult() =
+        runComposeUiTest {
+            var tests = 0
+            var current by mutableStateOf(state.copy(webSearchKey = ApiKey("fc-1")))
+            setContent { TestSettingsScreen(current, onTestWebSearchKey = { tests++ }) }
+
+            onNodeWithTag(SettingsScreenTags.TEST_WEB_SEARCH_KEY).performScrollTo().performClick()
+            onNodeWithTag(SettingsScreenTags.WEB_SEARCH_KEY_STATUS).assertDoesNotExist()
+
+            current = current.copy(webSearchTest = ConnectionTestState.Done(ConnectionTestResult.Unauthorized))
+            waitForIdle()
+
+            assertEquals(1, tests)
+            onNodeWithTag(SettingsScreenTags.WEB_SEARCH_KEY_STATUS).performScrollTo().assertExists()
+            onNodeWithTag(SettingsScreenTags.CONNECTION_STATUS).assertDoesNotExist()
         }
 }
