@@ -7,6 +7,8 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.serialization.Serializable
 
 internal class FirecrawlSearchTool(
@@ -15,15 +17,21 @@ internal class FirecrawlSearchTool(
 ) : WebSearchTool {
     override suspend fun search(query: String): List<WebSearchResult> {
         val response: FirecrawlSearchResponse =
-            http
-                .post(FIRECRAWL_SEARCH_URL) {
-                    contentType(ContentType.Application.Json)
-                    header("Authorization", "Bearer ${apiKey.value}")
-                    setBody(FirecrawlSearchRequest(query = query, limit = SEARCH_RESULT_LIMIT))
-                }.body()
-        if (!response.success) {
-            throw AnalysisException(AnalysisError.InvalidResponse("Firecrawl search reported success=false"))
-        }
+            try {
+                http
+                    .post(FIRECRAWL_SEARCH_URL) {
+                        contentType(ContentType.Application.Json)
+                        header("Authorization", "Bearer ${apiKey.value}")
+                        setBody(FirecrawlSearchRequest(query = query, limit = SEARCH_RESULT_LIMIT))
+                    }.body()
+            } catch (e: TimeoutCancellationException) {
+                throw WebSearchUnavailableException(httpStatus = null, cause = e)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                throw e.toSearchException()
+            }
+        if (!response.success) throw WebSearchUnavailableException(httpStatus = null)
         return response.data?.web.orEmpty().mapNotNull { it.toWebSearchResult() }
     }
 
@@ -64,3 +72,9 @@ private fun FirecrawlSearchResponse.Item.toWebSearchResult(): WebSearchResult? {
     val resultUrl = url?.takeIf { it.isNotBlank() } ?: return null
     return WebSearchResult(title = resultTitle, url = resultUrl, snippet = description.orEmpty())
 }
+
+private fun Exception.toSearchException(): Exception =
+    when (val failure = firecrawlFailureOf(this)) {
+        is WebSearchFailure.Rejected -> AnalysisException(AnalysisError.WebSearchRejected(failure.httpStatus), this)
+        is WebSearchFailure.Unavailable -> WebSearchUnavailableException(failure.httpStatus, this)
+    }

@@ -24,6 +24,11 @@ sealed interface AnalysisError {
     data class AmbiguousSubject(
         val explanation: String,
     ) : AnalysisError
+
+    /** The web search provider refused the user's key (invalid, no permission or out of credits). */
+    data class WebSearchRejected(
+        val httpStatus: Int,
+    ) : AnalysisError
 }
 
 class AnalysisException(

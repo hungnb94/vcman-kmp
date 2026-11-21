@@ -5,15 +5,16 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandler
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.toByteArray
-import io.ktor.client.plugins.ResponseException
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertIs
+import kotlin.test.assertNull
 
 class FirecrawlSearchToolTest {
     private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
@@ -112,11 +113,53 @@ class FirecrawlSearchToolTest {
         }
 
     @Test
-    fun search_http401ThrowsResponseException() =
+    fun search_keyRefusedStatusesThrowWebSearchRejected() =
         runTest {
-            val tool = FirecrawlSearchTool(clientReturning("unauthorized", HttpStatusCode.Unauthorized), ApiKey("key"))
+            listOf(HttpStatusCode.Unauthorized, HttpStatusCode.PaymentRequired, HttpStatusCode.Forbidden).forEach { status ->
+                val tool = FirecrawlSearchTool(clientReturning("""{"success":false}""", status), ApiKey("key"))
 
-            assertFailsWith<ResponseException> { tool.search("query") }
+                val error = assertFailsWith<AnalysisException> { tool.search("query") }
+
+                assertEquals(AnalysisError.WebSearchRejected(status.value), error.error)
+            }
+        }
+
+    @Test
+    fun search_transientStatusesThrowUnavailableWithStatus() =
+        runTest {
+            listOf(
+                HttpStatusCode.BadRequest,
+                HttpStatusCode.NotFound,
+                HttpStatusCode.Gone,
+                HttpStatusCode.RequestTimeout,
+                HttpStatusCode.TooManyRequests,
+                HttpStatusCode.InternalServerError,
+                HttpStatusCode.BadGateway,
+            ).forEach { status ->
+                val tool = FirecrawlSearchTool(clientReturning("""{"success":false}""", status), ApiKey("key"))
+
+                val error = assertFailsWith<WebSearchUnavailableException> { tool.search("query") }
+
+                assertEquals(status.value, error.httpStatus)
+            }
+        }
+
+    @Test
+    fun search_networkFailureThrowsUnavailableWithoutStatus() =
+        runTest {
+            val tool = FirecrawlSearchTool(testHttpClient { throw IOException("offline") }, ApiKey("key"))
+
+            val error = assertFailsWith<WebSearchUnavailableException> { tool.search("query") }
+
+            assertNull(error.httpStatus)
+        }
+
+    @Test
+    fun search_cancellationIsRethrown() =
+        runTest {
+            val tool = FirecrawlSearchTool(testHttpClient { throw CancellationException("cancelled") }, ApiKey("key"))
+
+            assertFailsWith<CancellationException> { tool.search("query") }
         }
 
     @Test
@@ -128,12 +171,10 @@ class FirecrawlSearchToolTest {
         }
 
     @Test
-    fun search_httpOkButSuccessFalseThrowsInvalidResponse() =
+    fun search_httpOkButSuccessFalseThrowsUnavailable() =
         runTest {
             val tool = FirecrawlSearchTool(clientReturning("""{"success":false}"""), ApiKey("key"))
 
-            val error = assertFailsWith<AnalysisException> { tool.search("query") }
-
-            assertIs<AnalysisError.InvalidResponse>(error.error)
+            assertFailsWith<WebSearchUnavailableException> { tool.search("query") }
         }
 }
