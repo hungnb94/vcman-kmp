@@ -3,6 +3,9 @@ package com.tekome.vcman.presentation
 import com.tekome.vcman.data.AnalysisError
 import com.tekome.vcman.data.AnalysisException
 import com.tekome.vcman.data.FakeSettingsRepository
+import com.tekome.vcman.data.WebSearchToolConfig
+import com.tekome.vcman.data.WebSearchSettings
+import com.tekome.vcman.data.ApiKey
 import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.LlmRequestConfig
 import com.tekome.vcman.data.ScoreAnalysisService
@@ -155,6 +158,32 @@ class ScoreAnalysisViewModelTest {
                 assertEquals(saved, config?.settings)
                 assertNull(config?.searchTool)
             }
+        }
+
+    @Test
+    fun analyze_savedFirecrawlKeyIsPassedAsSearchTool() =
+        runTest {
+            val service = FakeScoreAnalysisService()
+            val repository = FakeSettingsRepository(validSettings(), webSearch = WebSearchSettings(ApiKey("fc-saved")))
+            val vm = ScoreAnalysisViewModel(repository, service = service)
+
+            vm.analyze("Title", "Rubric text", "Acme", VI)
+
+            val searchTool = assertIs<WebSearchToolConfig.Firecrawl>(service.lastConfig?.searchTool)
+            assertEquals(ApiKey("fc-saved"), searchTool.apiKey)
+        }
+
+    @Test
+    fun analyze_firecrawlKeySavedAfterTheViewModelWasCreatedIsUsed() =
+        runTest {
+            val service = FakeScoreAnalysisService()
+            val repository = FakeSettingsRepository(validSettings())
+            val vm = ScoreAnalysisViewModel(repository, service = service)
+            repository.webSearch = WebSearchSettings(ApiKey("fc-later"))
+
+            vm.analyze("Title", "Rubric text", "Acme", VI)
+
+            assertIs<WebSearchToolConfig.Firecrawl>(service.lastConfig?.searchTool)
         }
 
     @Test
