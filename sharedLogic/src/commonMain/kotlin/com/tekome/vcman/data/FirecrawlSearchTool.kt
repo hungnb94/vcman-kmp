@@ -19,29 +19,38 @@ internal class FirecrawlSearchTool(
                 .post(FIRECRAWL_SEARCH_URL) {
                     contentType(ContentType.Application.Json)
                     header("Authorization", "Bearer ${apiKey.value}")
-                    setBody(FirecrawlSearchRequest(query = query))
+                    setBody(FirecrawlSearchRequest(query = query, limit = SEARCH_RESULT_LIMIT))
                 }.body()
         if (!response.success) {
             throw AnalysisException(AnalysisError.InvalidResponse("Firecrawl search reported success=false"))
         }
-        return response.data.orEmpty().mapNotNull { it.toWebSearchResult() }
+        return response.data?.web.orEmpty().mapNotNull { it.toWebSearchResult() }
     }
 
     private companion object {
-        const val FIRECRAWL_SEARCH_URL = "https://api.firecrawl.dev/v1/search"
+        const val FIRECRAWL_SEARCH_URL = "https://api.firecrawl.dev/v2/search"
+
+        // v2 raised the default from 5 to 10 at the same 2 credits; 5 keeps prompts short.
+        const val SEARCH_RESULT_LIMIT = 5
     }
 }
 
 @Serializable
 private data class FirecrawlSearchRequest(
     val query: String,
+    val limit: Int,
 )
 
 @Serializable
 private data class FirecrawlSearchResponse(
     val success: Boolean = true,
-    val data: List<Item>? = null,
+    val data: Data? = null,
 ) {
+    @Serializable
+    data class Data(
+        val web: List<Item>? = null,
+    )
+
     @Serializable
     data class Item(
         val title: String? = null,

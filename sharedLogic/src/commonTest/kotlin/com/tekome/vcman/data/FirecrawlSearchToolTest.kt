@@ -28,7 +28,7 @@ class FirecrawlSearchToolTest {
     @Test
     fun search_mapsResultsToTitleUrlSnippet() =
         runTest {
-            val body = """{"success":true,"data":[{"title":"A","url":"https://a.example","description":"snippet-a"}]}"""
+            val body = """{"success":true,"data":{"web":[{"title":"A","url":"https://a.example","description":"snippet-a"}]}}"""
             val tool = FirecrawlSearchTool(clientReturning(body), ApiKey("key"))
 
             val results = tool.search("query")
@@ -41,10 +41,10 @@ class FirecrawlSearchToolTest {
         runTest {
             val body =
                 """
-                {"success":true,"data":[
+                {"success":true,"data":{"web":[
                     {"title":"A","url":"https://a.example","description":"d"},
                     {"title":null,"url":"https://b.example","description":"d"}
-                ]}
+                ]}}
                 """.trimIndent()
             val tool = FirecrawlSearchTool(clientReturning(body), ApiKey("key"))
 
@@ -60,7 +60,7 @@ class FirecrawlSearchToolTest {
             val http =
                 testHttpClient { request ->
                     capturedAuth = request.headers[HttpHeaders.Authorization]
-                    respond("""{"success":true,"data":[]}""", HttpStatusCode.OK, jsonHeaders)
+                    respond("""{"success":true,"data":{"web":[]}}""", HttpStatusCode.OK, jsonHeaders)
                 }
             val tool = FirecrawlSearchTool(http, ApiKey("firecrawl-secret"))
 
@@ -76,13 +76,39 @@ class FirecrawlSearchToolTest {
             val http =
                 testHttpClient { request ->
                     capturedBody = request.body.toByteArray().decodeToString()
-                    respond("""{"success":true,"data":[]}""", HttpStatusCode.OK, jsonHeaders)
+                    respond("""{"success":true,"data":{"web":[]}}""", HttpStatusCode.OK, jsonHeaders)
                 }
             val tool = FirecrawlSearchTool(http, ApiKey("key"))
 
             tool.search("vc rubric scoring")
 
             assertEquals(capturedBody?.contains("vc rubric scoring"), true)
+        }
+
+    @Test
+    fun search_postsToV2WithResultLimit() =
+        runTest {
+            var capturedUrl: String? = null
+            var capturedBody: String? = null
+            val http =
+                testHttpClient { request ->
+                    capturedUrl = request.url.toString()
+                    capturedBody = request.body.toByteArray().decodeToString()
+                    respond("""{"success":true,"data":{"web":[]}}""", HttpStatusCode.OK, jsonHeaders)
+                }
+
+            FirecrawlSearchTool(http, ApiKey("key")).search("query")
+
+            assertEquals("https://api.firecrawl.dev/v2/search", capturedUrl)
+            assertEquals(capturedBody?.contains("\"limit\":5"), true)
+        }
+
+    @Test
+    fun search_missingWebListReturnsEmptyList() =
+        runTest {
+            val tool = FirecrawlSearchTool(clientReturning("""{"success":true,"data":{"news":[]}}"""), ApiKey("key"))
+
+            assertEquals(emptyList(), tool.search("query"))
         }
 
     @Test
@@ -96,7 +122,7 @@ class FirecrawlSearchToolTest {
     @Test
     fun search_emptyPayloadReturnsEmptyList() =
         runTest {
-            val tool = FirecrawlSearchTool(clientReturning("""{"success":true,"data":[]}"""), ApiKey("key"))
+            val tool = FirecrawlSearchTool(clientReturning("""{"success":true,"data":{"web":[]}}"""), ApiKey("key"))
 
             assertEquals(emptyList(), tool.search("query"))
         }
