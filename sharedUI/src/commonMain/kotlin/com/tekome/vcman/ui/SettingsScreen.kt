@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import com.tekome.vcman.data.ConnectionTestResult
 import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.SettingsField
+import com.tekome.vcman.data.SettingsFieldError
 import com.tekome.vcman.presentation.ConnectionTestState
 import com.tekome.vcman.presentation.SaveStatus
 import com.tekome.vcman.presentation.SettingsUiState
@@ -62,15 +63,21 @@ import vcman.sharedui.generated.resources.settings_back
 import vcman.sharedui.generated.resources.settings_base_url_label
 import vcman.sharedui.generated.resources.settings_connection_testing
 import vcman.sharedui.generated.resources.settings_hide_key
+import vcman.sharedui.generated.resources.settings_hide_web_search_key
 import vcman.sharedui.generated.resources.settings_model_label
 import vcman.sharedui.generated.resources.settings_provider_label
 import vcman.sharedui.generated.resources.settings_save
 import vcman.sharedui.generated.resources.settings_save_failed
 import vcman.sharedui.generated.resources.settings_saved
 import vcman.sharedui.generated.resources.settings_show_key
+import vcman.sharedui.generated.resources.settings_show_web_search_key
 import vcman.sharedui.generated.resources.settings_test_connection
+import vcman.sharedui.generated.resources.settings_test_web_search_key
 import vcman.sharedui.generated.resources.settings_title
 import vcman.sharedui.generated.resources.settings_warning_insecure_http
+import vcman.sharedui.generated.resources.settings_web_search_heading
+import vcman.sharedui.generated.resources.settings_web_search_key_hint
+import vcman.sharedui.generated.resources.settings_web_search_key_label
 
 internal object SettingsScreenTags {
     const val TITLE = "settings_title"
@@ -86,6 +93,10 @@ internal object SettingsScreenTags {
     const val SAVE_STATUS = "settings_save_status"
     const val TEST_CONNECTION = "settings_test_connection"
     const val CONNECTION_STATUS = "settings_connection_status"
+    const val WEB_SEARCH_KEY = "settings_web_search_key"
+    const val TOGGLE_WEB_SEARCH_KEY = "settings_toggle_web_search_key"
+    const val TEST_WEB_SEARCH_KEY = "settings_test_web_search_key"
+    const val WEB_SEARCH_KEY_STATUS = "settings_web_search_key_status"
 
     fun provider(type: LlmProviderType) = PROVIDER_PREFIX + type.id
 }
@@ -98,11 +109,14 @@ fun SettingsScreen(
     onApiKeyChange: (String) -> Unit,
     onBaseUrlChange: (String) -> Unit,
     onModelChange: (String) -> Unit,
+    onWebSearchKeyChange: (String) -> Unit,
     onSave: () -> Unit,
     onTestConnection: () -> Unit,
+    onTestWebSearchKey: () -> Unit,
     onBack: () -> Unit,
 ) {
     var keyVisible by rememberSaveable { mutableStateOf(false) }
+    var webSearchKeyVisible by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
@@ -113,6 +127,15 @@ fun SettingsScreen(
             state = state,
             keyVisible = keyVisible,
             onToggleKeyVisible = { keyVisible = !keyVisible },
+            webSearchSection = {
+                WebSearchSection(
+                    state = state,
+                    keyVisible = webSearchKeyVisible,
+                    onToggleKeyVisible = { webSearchKeyVisible = !webSearchKeyVisible },
+                    onKeyChange = onWebSearchKeyChange,
+                    onTestKey = onTestWebSearchKey,
+                )
+            },
             onSelectProvider = onSelectProvider,
             onApiKeyChange = onApiKeyChange,
             onBaseUrlChange = onBaseUrlChange,
@@ -120,6 +143,49 @@ fun SettingsScreen(
             onSave = onSave,
             onTestConnection = onTestConnection,
         )
+    }
+}
+
+@Composable
+private fun WebSearchSection(
+    state: SettingsUiState,
+    keyVisible: Boolean,
+    onToggleKeyVisible: () -> Unit,
+    onKeyChange: (String) -> Unit,
+    onTestKey: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            stringResource(Res.string.settings_web_search_heading),
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.semantics { heading() },
+        )
+        SettingsTextField(
+            value = state.webSearchKey.value,
+            onValueChange = onKeyChange,
+            label = stringResource(Res.string.settings_web_search_key_label),
+            tag = SettingsScreenTags.WEB_SEARCH_KEY,
+            masked = !keyVisible,
+            hint = stringResource(Res.string.settings_web_search_key_hint),
+        )
+        TextButton(
+            onClick = onToggleKeyVisible,
+            modifier = Modifier.align(Alignment.End).testTag(SettingsScreenTags.TOGGLE_WEB_SEARCH_KEY),
+        ) {
+            Text(
+                stringResource(
+                    if (keyVisible) Res.string.settings_hide_web_search_key else Res.string.settings_show_web_search_key,
+                ),
+            )
+        }
+        OutlinedButton(
+            onClick = onTestKey,
+            enabled = state.canTestWebSearchKey,
+            modifier = Modifier.fillMaxWidth().testTag(SettingsScreenTags.TEST_WEB_SEARCH_KEY),
+        ) {
+            Text(stringResource(Res.string.settings_test_web_search_key))
+        }
+        ConnectionStatus(state.webSearchTest, SettingsScreenTags.WEB_SEARCH_KEY_STATUS)
     }
 }
 
@@ -172,6 +238,7 @@ private fun SettingsForm(
     state: SettingsUiState,
     keyVisible: Boolean,
     onToggleKeyVisible: () -> Unit,
+    webSearchSection: @Composable () -> Unit,
     onSelectProvider: (LlmProviderType) -> Unit,
     onApiKeyChange: (String) -> Unit,
     onBaseUrlChange: (String) -> Unit,
@@ -220,8 +287,7 @@ private fun SettingsForm(
             value = form.apiKey.value,
             onValueChange = onApiKeyChange,
             label = stringResource(Res.string.settings_api_key_label),
-            state = state,
-            field = SettingsField.ApiKey,
+            errors = state.errorsFor(SettingsField.ApiKey),
             tag = SettingsScreenTags.API_KEY,
             masked = !keyVisible,
         )
@@ -235,8 +301,7 @@ private fun SettingsForm(
             value = form.baseUrl,
             onValueChange = onBaseUrlChange,
             label = stringResource(Res.string.settings_base_url_label),
-            state = state,
-            field = SettingsField.BaseUrl,
+            errors = state.errorsFor(SettingsField.BaseUrl),
             tag = SettingsScreenTags.BASE_URL,
             keyboardType = KeyboardType.Uri,
         )
@@ -251,10 +316,11 @@ private fun SettingsForm(
             value = form.model,
             onValueChange = onModelChange,
             label = stringResource(Res.string.settings_model_label),
-            state = state,
-            field = SettingsField.Model,
+            errors = state.errorsFor(SettingsField.Model),
             tag = SettingsScreenTags.MODEL,
         )
+
+        webSearchSection()
 
         Button(
             onClick = onSave,
@@ -290,24 +356,29 @@ private fun SettingsForm(
         ) {
             Text(stringResource(Res.string.settings_test_connection))
         }
-        when (val connection = state.connection) {
-            ConnectionTestState.Idle -> {
-            }
+        ConnectionStatus(state.connection, SettingsScreenTags.CONNECTION_STATUS)
+    }
+}
 
-            ConnectionTestState.Testing -> {
-                StatusText(
-                    stringResource(Res.string.settings_connection_testing),
-                    SettingsScreenTags.CONNECTION_STATUS,
-                )
-            }
+@Composable
+private fun ConnectionStatus(
+    connection: ConnectionTestState,
+    tag: String,
+) {
+    when (connection) {
+        ConnectionTestState.Idle -> {
+        }
 
-            is ConnectionTestState.Done -> {
-                StatusText(
-                    text = connection.result.asText(),
-                    tag = SettingsScreenTags.CONNECTION_STATUS,
-                    isError = connection.result != ConnectionTestResult.Success,
-                )
-            }
+        ConnectionTestState.Testing -> {
+            StatusText(stringResource(Res.string.settings_connection_testing), tag)
+        }
+
+        is ConnectionTestState.Done -> {
+            StatusText(
+                text = connection.result.asText(),
+                tag = tag,
+                isError = connection.result != ConnectionTestResult.Success,
+            )
         }
     }
 }
@@ -317,14 +388,13 @@ private fun SettingsTextField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
-    state: SettingsUiState,
-    field: SettingsField,
     tag: String,
     modifier: Modifier = Modifier,
+    errors: List<SettingsFieldError> = emptyList(),
     masked: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
+    hint: String? = null,
 ) {
-    val errors = state.errors.filter { it.field == field }
     key(masked) {
         OutlinedTextField(
             value = value,
@@ -334,7 +404,7 @@ private fun SettingsTextField(
             isError = errors.isNotEmpty(),
             supportingText =
                 if (errors.isEmpty()) {
-                    null
+                    hint?.let { { Text(it) } }
                 } else {
                     {
                         Column {
@@ -362,6 +432,8 @@ private fun SettingsTextField(
     }
 }
 
+private fun SettingsUiState.errorsFor(field: SettingsField): List<SettingsFieldError> = errors.filter { it.field == field }
+
 @Composable
 private fun StatusText(
     text: String,
@@ -388,8 +460,10 @@ private fun SettingsScreenPreview() {
             onApiKeyChange = {},
             onBaseUrlChange = {},
             onModelChange = {},
+            onWebSearchKeyChange = {},
             onSave = {},
             onTestConnection = {},
+            onTestWebSearchKey = {},
             onBack = {},
         )
     }

@@ -36,6 +36,38 @@ class StoredSettingsRepositoryTest {
         }
 
     @Test
+    fun webSearchIsOffUntilAKeyIsSaved() =
+        runTest {
+            assertEquals(WebSearchSettings.Off, repository.loadWebSearch())
+        }
+
+    @Test
+    fun firecrawlKeyRoundTripsThroughTheSecretStoreOnly() =
+        runTest {
+            repository.save(validSettings())
+            val prefsBefore = prefs.keys
+
+            repository.saveWebSearch(WebSearchSettings(ApiKey("fc-secret")))
+
+            assertEquals(WebSearchSettings(ApiKey("fc-secret")), repository.loadWebSearch())
+            assertEquals(prefsBefore, prefs.keys)
+            assertFalse(prefs.keys.any { prefs.getStringOrNull(it) == "fc-secret" })
+            assertEquals(validSettings(), repository.load())
+        }
+
+    @Test
+    fun savingBlankFirecrawlKeyRemovesItAndKeepsTheLlmKey() =
+        runTest {
+            repository.save(validSettings(key = "sk-llm"))
+            repository.saveWebSearch(WebSearchSettings(ApiKey("fc-old")))
+
+            repository.saveWebSearch(WebSearchSettings.Off)
+
+            assertEquals(WebSearchSettings.Off, repository.loadWebSearch())
+            assertEquals(setOf("llm.api_key"), secrets.values.keys)
+        }
+
+    @Test
     fun unknownProviderIdLoadsNullWithoutCrashing() =
         runTest {
             prefs.putString("llm.provider_id", "gemini")

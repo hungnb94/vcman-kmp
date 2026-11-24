@@ -8,6 +8,8 @@ import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.LlmSettings
 import com.tekome.vcman.data.SettingsFieldError
 import com.tekome.vcman.data.SettingsRepository
+import com.tekome.vcman.data.WebSearchKeyTester
+import com.tekome.vcman.data.WebSearchSettings
 import com.tekome.vcman.data.validSettings
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +41,19 @@ class SettingsViewModelTest {
         fun complete(result: ConnectionTestResult) = pending.complete(result)
     }
 
+    private class FakeKeyTester(
+        private val pending: CompletableDeferred<ConnectionTestResult> = CompletableDeferred(),
+    ) : WebSearchKeyTester {
+        val tested = mutableListOf<ApiKey>()
+
+        override suspend fun test(key: ApiKey): ConnectionTestResult {
+            tested += key
+            return pending.await()
+        }
+
+        fun complete(result: ConnectionTestResult) = pending.complete(result)
+    }
+
     @BeforeTest
     fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
 
@@ -48,7 +63,8 @@ class SettingsViewModelTest {
     private fun viewModel(
         repository: FakeSettingsRepository = FakeSettingsRepository(),
         tester: ConnectionTester = FakeTester(),
-    ) = SettingsViewModel(repository, tester)
+        keyTester: WebSearchKeyTester = FakeKeyTester(),
+    ) = SettingsViewModel(repository, tester, keyTester)
 
     private fun SettingsViewModel.fillValid() {
         updateApiKey("  sk-typed  ")
@@ -88,8 +104,12 @@ class SettingsViewModelTest {
                 }
 
                 override suspend fun save(settings: LlmSettings) = Unit
+
+                override suspend fun loadWebSearch(): WebSearchSettings = WebSearchSettings.Off
+
+                override suspend fun saveWebSearch(settings: WebSearchSettings) = Unit
             }
-        val vm = SettingsViewModel(repository, FakeTester())
+        val vm = SettingsViewModel(repository, FakeTester(), FakeKeyTester())
 
         vm.updateApiKey("sk-typed")
         gate.complete(Unit)
@@ -319,5 +339,132 @@ class SettingsViewModelTest {
 
         assertFalse("sk-loaded-secret" in rendered)
         assertFalse("sk-typed-secret" in rendered)
+    }
+
+    @Test
+    fun savedFirecrawlKeyIsShownAgain() {
+        val repository = FakeSettingsRepository(validSettings(), webSearch = WebSearchSettings(ApiKey("fc-saved")))
+
+        assertEquals(ApiKey("fc-saved"), viewModel(repository).uiState.value.webSearchKey)
+    }
+
+    @Test
+    fun webSearchLoadFailureLeavesSearchOffButKeepsLlmSettings() {
+        val repository =
+            object : SettingsRepository by FakeSettingsRepository(validSettings()) {
+                override suspend fun loadWebSearch(): WebSearchSettings = error("keychain locked")
+            }
+
+        val state = SettingsViewModel(repository, FakeTester(), FakeKeyTester()).uiState.value
+
+        assertTrue(state.loaded)
+        assertEquals(SettingsForm.from(validSettings()), state.form)
+        assertEquals(ApiKey(""), state.webSearchKey)
+    }
+
+    @Test
+    fun saveStoresTrimmedFirecrawlKeyWithTheLlmSettings() {
+        val repository = FakeSettingsRepository()
+        val vm = viewModel(repository)
+        vm.fillValid()
+        vm.updateWebSearchKey("  fc-typed  ")
+
+        vm.save()
+
+        assertEquals(WebSearchSettings(ApiKey("fc-typed")), repository.webSearch)
+        assertEquals(SaveStatus.Saved, vm.uiState.value.saveStatus)
+    }
+
+    @Test
+    fun saveWithBlankFirecrawlKeyTurnsSearchOff() {
+        val repository = FakeSettingsRepository(validSettings(), webSearch = WebSearchSettings(ApiKey("fc-old")))
+        val vm = viewModel(repository)
+
+        vm.updateWebSearchKey("   ")
+        vm.save()
+
+        assertEquals(WebSearchSettings.Off, repository.webSearch)
+    }
+
+    @Test
+    fun invalidLlmFormBlocksSavingTheFirecrawlKeyToo() {
+        val repository = FakeSettingsRepository()
+        val vm = viewModel(repository)
+
+        vm.updateWebSearchKey("fc-typed")
+        vm.save()
+
+        assertEquals(WebSearchSettings.Off, repository.webSearch)
+        assertEquals(0, repository.saveCount)
+    }
+
+    @Test
+    fun editingFirecrawlKeyResetsSavedStatus() {
+        val vm = viewModel(FakeSettingsRepository())
+        vm.fillValid()
+        vm.save()
+
+        vm.updateWebSearchKey("fc-new")
+
+        assertEquals(SaveStatus.Idle, vm.uiState.value.saveStatus)
+    }
+
+    @Test
+    fun testWebSearchKeyUsesTrimmedKeyAndShowsResult() {
+        val keyTester = FakeKeyTester()
+        val vm = viewModel(keyTester = keyTester)
+        vm.updateWebSearchKey("  fc-typed ")
+
+        vm.testWebSearchKey()
+        assertEquals(ConnectionTestState.Testing, vm.uiState.value.webSearchTest)
+        keyTester.complete(ConnectionTestResult.Unauthorized)
+
+        assertEquals(listOf(ApiKey("fc-typed")), keyTester.tested)
+        assertEquals(ConnectionTestState.Done(ConnectionTestResult.Unauthorized), vm.uiState.value.webSearchTest)
+        assertEquals(ConnectionTestState.Idle, vm.uiState.value.connection)
+    }
+
+    @Test
+    fun testWebSearchKeyIgnoresBlankKeyAndDoesNotNeedAValidLlmForm() {
+        val keyTester = FakeKeyTester()
+        val vm = viewModel(keyTester = keyTester)
+
+        vm.testWebSearchKey()
+        vm.updateWebSearchKey("fc-typed")
+        vm.testWebSearchKey()
+
+        assertEquals(listOf(ApiKey("fc-typed")), keyTester.tested)
+        assertTrue(vm.uiState.value.errors.isEmpty())
+    }
+
+    @Test
+    fun editingFirecrawlKeyCancelsItsTestButNotTheLlmTest() {
+        val tester = FakeTester()
+        val keyTester = FakeKeyTester()
+        val vm = viewModel(tester = tester, keyTester = keyTester)
+        vm.fillValid()
+        vm.testConnection()
+        vm.updateWebSearchKey("fc-1")
+        vm.testWebSearchKey()
+
+        vm.updateWebSearchKey("fc-2")
+        keyTester.complete(ConnectionTestResult.Success)
+        tester.complete(ConnectionTestResult.Success)
+
+        assertEquals(ConnectionTestState.Idle, vm.uiState.value.webSearchTest)
+        assertEquals(ConnectionTestState.Done(ConnectionTestResult.Success), vm.uiState.value.connection)
+    }
+
+    @Test
+    fun editingLlmFieldsKeepsTheFirecrawlTestResult() {
+        val keyTester = FakeKeyTester()
+        val vm = viewModel(keyTester = keyTester)
+        vm.updateWebSearchKey("fc-1")
+        vm.testWebSearchKey()
+        keyTester.complete(ConnectionTestResult.Success)
+
+        vm.updateModel("other-model")
+
+        assertEquals(ConnectionTestState.Done(ConnectionTestResult.Success), vm.uiState.value.webSearchTest)
     }
 }

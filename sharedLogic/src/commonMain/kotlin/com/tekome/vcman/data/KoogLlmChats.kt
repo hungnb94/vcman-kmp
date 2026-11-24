@@ -137,6 +137,9 @@ internal class KoogLlmChat(
     }
 }
 
+internal const val WEB_SEARCH_UNAVAILABLE_MESSAGE =
+    "Web search is unavailable right now. Do not call web_search again; continue with your own knowledge."
+
 internal class WebSearchKoogTool(
     private val delegate: WebSearchTool,
     name: String = "web_search",
@@ -160,6 +163,9 @@ internal class WebSearchKoogTool(
                 delegate.search(args.query).also { onFailure(null) }
             } catch (e: CancellationException) {
                 throw e
+            } catch (_: WebSearchUnavailableException) {
+                onFailure(null)
+                return WEB_SEARCH_UNAVAILABLE_MESSAGE
             } catch (e: Exception) {
                 onFailure(e)
                 throw e

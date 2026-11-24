@@ -25,7 +25,7 @@ internal fun createDefaultHttpClient(): HttpClient = HttpClient(block = defaultH
 
 internal fun createHttpClient(engine: HttpClientEngine): HttpClient = HttpClient(engine, defaultHttpClientConfig)
 
-private val defaultHttpClient: HttpClient by lazy { createDefaultHttpClient() }
+internal val defaultHttpClient: HttpClient by lazy { createDefaultHttpClient() }
 
 internal fun defaultSearchToolResolver(http: HttpClient = defaultHttpClient): (WebSearchToolConfig) -> WebSearchTool =
     { config -> config.createTool(http) }

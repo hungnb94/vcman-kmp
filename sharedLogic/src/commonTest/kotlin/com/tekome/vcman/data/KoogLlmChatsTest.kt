@@ -192,6 +192,18 @@ class KoogLlmChatsTest {
         }
 
     @Test
+    fun webSearchKoogTool_unavailableSearchTellsModelToContinueWithoutFailing() =
+        runTest {
+            var reported: Throwable? = IllegalStateException("stale")
+            val tool = WebSearchKoogTool(WebSearchTool { throw WebSearchUnavailableException(503) }) { reported = it }
+
+            val output = tool.execute(WebSearchKoogTool.Args("acme"))
+
+            assertEquals(WEB_SEARCH_UNAVAILABLE_MESSAGE, output)
+            assertEquals(null, reported)
+        }
+
+    @Test
     fun webSearchKoogTool_defaultNameIsWebSearch() {
         val tool = WebSearchKoogTool({ emptyList() })
 

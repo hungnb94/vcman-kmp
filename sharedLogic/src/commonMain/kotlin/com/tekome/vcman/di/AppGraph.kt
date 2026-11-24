@@ -2,9 +2,11 @@ package com.tekome.vcman.di
 
 import androidx.lifecycle.ViewModel
 import com.tekome.vcman.data.ConnectionTester
+import com.tekome.vcman.data.FirecrawlKeyTester
 import com.tekome.vcman.data.KoogScoreAnalysisService
 import com.tekome.vcman.data.LlmConnectionTester
 import com.tekome.vcman.data.ScoreAnalysisService
+import com.tekome.vcman.data.WebSearchKeyTester
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
@@ -17,6 +19,9 @@ import kotlin.reflect.KClass
 interface AppGraph : ViewModelGraph {
     @Provides
     private fun provideConnectionTester(): ConnectionTester = LlmConnectionTester()
+
+    @Provides
+    private fun provideWebSearchKeyTester(): WebSearchKeyTester = FirecrawlKeyTester()
 
     @Provides
     private fun provideScoreAnalysisService(): ScoreAnalysisService = KoogScoreAnalysisService()

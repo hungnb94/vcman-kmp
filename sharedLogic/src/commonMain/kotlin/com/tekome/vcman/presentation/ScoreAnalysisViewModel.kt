@@ -65,8 +65,9 @@ class ScoreAnalysisViewModel(
                         if (settings == null) {
                             AnalysisUiState.Error(AnalysisFailure.NotConfigured)
                         } else {
+                            val searchTool = settingsRepository.loadWebSearch().toolConfig
                             service
-                                .analyze(rubric, subjectQuery, LlmRequestConfig(settings, searchTool = null), outputLanguage)
+                                .analyze(rubric, subjectQuery, LlmRequestConfig(settings, searchTool), outputLanguage)
                                 .fold(
                                     onSuccess = { AnalysisUiState.Success(it) },
                                     onFailure = { AnalysisUiState.Error(it.toFailure()) },

@@ -29,6 +29,11 @@ sealed interface AnalysisFailure {
         val explanation: String,
     ) : AnalysisFailure
 
+    /** The saved web search key was refused; the UI points the user to Settings. */
+    data class WebSearchRejected(
+        val httpStatus: Int,
+    ) : AnalysisFailure
+
     data object Unexpected : AnalysisFailure
 }
 
@@ -52,4 +57,5 @@ internal fun AnalysisError.toFailure(): AnalysisFailure =
         is AnalysisError.ApiError -> AnalysisFailure.Api(httpStatus)
         is AnalysisError.InvalidResponse -> AnalysisFailure.InvalidResponse
         is AnalysisError.AmbiguousSubject -> AnalysisFailure.AmbiguousSubject(explanation)
+        is AnalysisError.WebSearchRejected -> AnalysisFailure.WebSearchRejected(httpStatus)
     }

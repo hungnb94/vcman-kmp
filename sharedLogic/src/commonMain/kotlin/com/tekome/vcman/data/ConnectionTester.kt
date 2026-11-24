@@ -70,7 +70,7 @@ private fun AnalysisError?.toTestResult(): ConnectionTestResult =
             }
         }
 
-        is AnalysisError.InvalidResponse, is AnalysisError.AmbiguousSubject, null -> {
+        is AnalysisError.InvalidResponse, is AnalysisError.AmbiguousSubject, is AnalysisError.WebSearchRejected, null -> {
             ConnectionTestResult.Unexpected
         }
     }

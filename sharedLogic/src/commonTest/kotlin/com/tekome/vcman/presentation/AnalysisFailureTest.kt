@@ -62,6 +62,7 @@ class AnalysisFailureTest {
                 AnalysisError.InvalidResponse(reason = "internal-parser-detail") to AnalysisFailure.InvalidResponse,
                 AnalysisError.AmbiguousSubject(explanation = "2 companies named Acme") to
                     AnalysisFailure.AmbiguousSubject("2 companies named Acme"),
+                AnalysisError.WebSearchRejected(402) to AnalysisFailure.WebSearchRejected(402),
             )
 
         cases.forEach { (error, expected) ->

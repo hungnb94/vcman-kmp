@@ -10,6 +10,10 @@ interface SettingsRepository {
     suspend fun load(): LlmSettings?
 
     suspend fun save(settings: LlmSettings)
+
+    suspend fun loadWebSearch(): WebSearchSettings
+
+    suspend fun saveWebSearch(settings: WebSearchSettings)
 }
 
 internal interface SecretStore {
@@ -66,10 +70,25 @@ internal class StoredSettingsRepository(
             prefs.putString(KEY_MODEL, settings.model)
         }
 
+    override suspend fun loadWebSearch(): WebSearchSettings =
+        withContext(dispatcher) {
+            WebSearchSettings(ApiKey(secrets.get(SECRET_FIRECRAWL_KEY).orEmpty()))
+        }
+
+    override suspend fun saveWebSearch(settings: WebSearchSettings) =
+        withContext(dispatcher) {
+            if (settings.firecrawlKey.value.isEmpty()) {
+                secrets.remove(SECRET_FIRECRAWL_KEY)
+            } else {
+                secrets.put(SECRET_FIRECRAWL_KEY, settings.firecrawlKey.value)
+            }
+        }
+
     private companion object {
         const val KEY_PROVIDER_ID = "llm.provider_id"
         const val KEY_BASE_URL = "llm.base_url"
         const val KEY_MODEL = "llm.model"
         const val SECRET_API_KEY = "llm.api_key"
+        const val SECRET_FIRECRAWL_KEY = "search.firecrawl_api_key"
     }
 }

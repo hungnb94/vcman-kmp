@@ -64,7 +64,7 @@ Guide for AI agents and developers working in this repo. Read **Boundaries** bef
 
 Kotlin Multiplatform app (root project `Vcman`, package root `com.tekome.vcman`) for Android, iOS and Web.
 
-**Status: POC.** One feature exists, on Android and iOS only: LLM score analysis — enter a rubric and a subject in `SetupScreen`, get a `ScoreReportScreen` — plus a Settings screen for the LLM provider, model and API key (issues #4, #6, #7, #11, #40). `webApp` is still the wizard `Greeting` sample. Nothing else exists; see **Roadmap**.
+**Status: POC.** One feature exists, on Android and iOS only: LLM score analysis — enter a rubric and a subject in `SetupScreen`, get a `ScoreReportScreen` — plus a Settings screen for the LLM provider, model and API key, and an optional Firecrawl key that turns on web search during analysis (issues #4, #6, #7, #11, #40, #58). `webApp` is still the wizard `Greeting` sample. Nothing else exists; see **Roadmap**.
 
 | Path | Kind | Role | Targets | Depends on |
 |---|---|---|---|---|
@@ -98,7 +98,7 @@ Kotlin Multiplatform app (root project `Vcman`, package root `com.tekome.vcman`)
 **Window insets.** Each destination owns its insets: Home applies `safeContentPadding()` in `AppContent`, Settings lets its `Scaffold`/`TopAppBar` handle them. Do not put `safeContentPadding()` back on the root `App()`, or app bars cannot draw edge-to-edge.
 
 **Dependency injection (Metro).** Metro is a Kotlin compiler plugin (no KSP/KAPT), applied to `sharedLogic` only, so a missing binding fails at compile time.
-- `AppGraph : ViewModelGraph` (`commonMain`, no annotation) holds the shared `@Provides` (`ConnectionTester`, `ScoreAnalysisService`). `AndroidAppGraph` (`androidMain`, `Context` via `@DependencyGraph.Factory`) and `IosAppGraph` (`iosMain`) extend it and add `SettingsRepository`. There is no graph for `js`.
+- `AppGraph : ViewModelGraph` (`commonMain`, no annotation) holds the shared `@Provides` (`ConnectionTester`, `WebSearchKeyTester`, `ScoreAnalysisService`). `AndroidAppGraph` (`androidMain`, `Context` via `@DependencyGraph.Factory`) and `IosAppGraph` (`iosMain`) extend it and add `SettingsRepository`. There is no graph for `js`.
 - Entry points call the plain per-platform function `createAppGraph(context)` / `createAppGraph()` and pass `graph.metroViewModelFactory` to `AppRoot` (`sharedUI`), which provides `LocalMetroViewModelFactory` and calls `App`. On Android the graph lives in `VcmanApplication` so it survives Activity recreation. `createGraph*` calls are compiler intrinsics: keep them in `sharedLogic`, not in `androidApp`/`sharedUI`.
 - **Add a ViewModel** = put `@Inject @ViewModelKey @ContributesIntoMap(AppScope::class)` on the class and call `metroViewModel<X>()` in its screen. **Add a shared dependency** = one `@Provides` in `AppGraph`; platform-specific ones go in the platform graph. No change to entry points.
 - `createSettingsRepository(...)` is `internal`: only the platform graph calls it.
@@ -145,6 +145,12 @@ Kotlin Multiplatform app (root project `Vcman`, package root `com.tekome.vcman`)
   - iOS: Keychain via `KeychainSettings`. Items survive an app uninstall; the next save overwrites them.
   - Web: no Settings screen, no key stored.
 - **Plain `http://`** to a non-local host (anything but `localhost`, `127.0.0.1`, `[::1]`, `10.0.2.2`) shows a warning but is allowed.
+- **Web search (Firecrawl, optional):** a blank key means search is off and the analysis request is the same as without the feature.
+  - Model and storage: `WebSearchSettings(firecrawlKey)` via `SettingsRepository.loadWebSearch()/saveWebSearch()`. The key lives only in the `SecretStore` (`search.firecrawl_api_key`), saved by the same Save button as the LLM settings; a blank key removes it. `ScoreAnalysisViewModel` reads it on every analyze and passes `WebSearchToolConfig.Firecrawl`.
+  - API: Firecrawl v2 only (`POST /v2/search` with `limit: 5`, results in `data.web`); v1 returns HTTP 410 after 2026-12-10. Search costs 2 credits per 10 results, even with `limit: 1`.
+  - Errors: one table, `firecrawlFailureOf` in `FirecrawlErrors.kt`. 401/402/403 = the key is refused: the analysis fails with `AnalysisFailure.WebSearchRejected(httpStatus)` (402 = out of credits). Anything else = `WebSearchUnavailableException`: the `web_search` tool tells the model to continue without it, and the report sets `webSearchSkipped`, which shows a warning. `RecordingWebSearchTool` keeps a rejection even when the Koog agent swallows the tool error.
+  - Key test: `FirecrawlKeyTester` calls `GET /v2/team/credit-usage` (no search credits) and maps through the same table. `KeyCheck` runs it in `viewModelScope`, independent of the LLM form and its connection test.
+  - Prompt: `PromptBuilder.buildSystemPrompt(rubric, webSearchAvailable)` adds `<web_search_policy>` only when a tool is attached.
 - **Security model — bring your own key, personal/dev use only.** The app calls the provider directly from the device with the user's own key; there is no backend. That is acceptable for a personal/POC build. It is **not** acceptable for a public App Store / Play Store release that ships or provisions a shared key: anything in the binary or on the device can be extracted, so a shared key must sit behind a backend proxy that authenticates users and enforces quotas.
 
 ## 8. Feature: localization (i18n)
@@ -217,7 +223,6 @@ Nothing in this section exists in the code. Each item needs an issue, and anythi
 |---|---|---|
 | Web feature | `webApp` shows `Greeting`; no `js` app graph or `SettingsRepository`, no web UI | Decide React UI over `sharedLogic` JS vs. a Compose `wasmJs` target |
 | Saved rubrics / analysis history | Rubric, subject and report are in memory only (`rememberSaveable` survives process death, not an app restart); only LLM settings persist | Add a KMP database (see below) |
-| Web search during analysis | `FirecrawlSearchTool` is implemented and tested, but `ScoreAnalysisViewModel` passes `searchTool = null` and no UI takes a Firecrawl key | Add the key to Settings and pass the config |
 | Public release | Bring-your-own-key only (section 7) | Backend proxy holding the key |
 
 **Engineering backlog (ordered by value / effort)**
@@ -233,7 +238,7 @@ Nothing in this section exists in the code. Each item needs an issue, and anythi
 | 7 | Raise JVM target 11 → 17 | Matches Koog's bytecode and current AGP defaults; removes the inline-function workaround | all modules (ask first) |
 | 8 | Swift-friendly API: SKIE or KMP-NativeCoroutines | Only if Swift code starts consuming `Flow`/`suspend` directly; today Swift only hosts Compose | `sharedUI`/iOS |
 
-Already done and no longer on the backlog: Ktor + kotlinx.serialization (issue #7), multiplatform-settings (issue #40), Navigation Compose (issue #40), DI with Metro, GitHub Actions CI with separate Linux/macOS runners.
+Already done and no longer on the backlog: Ktor + kotlinx.serialization (issue #7), multiplatform-settings (issue #40), Navigation Compose (issue #40), DI with Metro, web search with a Firecrawl key in Settings (issue #58), GitHub Actions CI with separate Linux/macOS runners.
 
 ## 11. References
 

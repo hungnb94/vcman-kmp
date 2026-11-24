@@ -246,7 +246,10 @@ class PromptBuilderTest {
     fun promptBuilder_supportsCustomImplementationForMocking() {
         val mockBuilder =
             object : PromptBuilder {
-                override fun buildSystemPrompt(rubric: RubricInput): String = "mock-system-prompt"
+                override fun buildSystemPrompt(
+                    rubric: RubricInput,
+                    webSearchAvailable: Boolean,
+                ): String = "mock-system-prompt"
 
                 override fun buildUserPrompt(
                     subjectQuery: String,
@@ -309,6 +312,20 @@ class PromptBuilderTest {
         val en = PromptBuilder.buildUserPrompt("Acme", LanguageTag.parse("en"))
 
         assertEquals(vi.replace("\"vi\"", "\"en\""), en)
+    }
+
+    @Test
+    fun buildSystemPrompt_mentionsWebSearchOnlyWhenAvailable() {
+        val rubric = RubricInput(title = "T", text = "Body")
+
+        val without = PromptBuilder.buildSystemPrompt(rubric)
+        val with = PromptBuilder.buildSystemPrompt(rubric, webSearchAvailable = true)
+
+        assertFalse(without.contains("web_search"))
+        assertTrue(with.contains("<web_search_policy>"))
+        assertTrue(with.contains("sourceUrl"))
+        assertTrue(with.indexOf("<web_search_policy>") < with.indexOf("<envelope_schema>"))
+        assertEquals(without, PromptBuilder.buildSystemPrompt(rubric, webSearchAvailable = false))
     }
 
     @Test

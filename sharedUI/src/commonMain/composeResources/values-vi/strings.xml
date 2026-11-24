@@ -15,6 +15,7 @@
     <string name="report_source">Nguồn</string>
     <string name="report_field_line">%1$s: %2$s</string>
     <string name="report_score_fraction">%1$s / %2$s</string>
+    <string name="report_web_search_skipped">Tìm kiếm web bị lỗi trong lần phân tích này, nên một số điểm có thể chỉ dựa trên kiến thức sẵn có của AI.</string>
     <string name="report_question_title">%1$s. %2$s</string>
     <string name="error_missing_fields">Vui lòng nhập: %1$s.</string>
     <string name="error_network">Lỗi mạng. Hãy kiểm tra kết nối và thử lại.</string>
@@ -23,6 +24,8 @@
     <string name="error_invalid_response">AI trả về phản hồi không đọc được. Vui lòng thử lại.</string>
     <string name="error_ambiguous_subject">Đối tượng chưa rõ ràng: %1$s</string>
     <string name="error_unexpected">Đã xảy ra lỗi. Vui lòng thử lại.</string>
+    <string name="error_web_search_key_rejected">Firecrawl đã từ chối khóa tìm kiếm web. Hãy kiểm tra lại trong Cài đặt.</string>
+    <string name="error_web_search_no_credits">Tài khoản Firecrawl đã hết credit. Hãy nạp thêm, hoặc xóa khóa trong Cài đặt để phân tích không dùng tìm kiếm web.</string>
     <string name="error_not_configured">Chưa cấu hình kết nối AI. Mở Cài đặt để hoàn tất cấu hình.</string>
     <string name="settings_title">Cài đặt</string>
     <string name="settings_back">Quay lại</string>
@@ -48,6 +51,12 @@
     <string name="settings_connection_api">Máy chủ trả về lỗi.</string>
     <string name="settings_connection_api_status">Máy chủ trả về lỗi (HTTP %1$d).</string>
     <string name="settings_connection_unexpected">Kiểm tra kết nối thất bại.</string>
+    <string name="settings_web_search_heading">Tìm kiếm web</string>
+    <string name="settings_web_search_key_label">Khóa API Firecrawl</string>
+    <string name="settings_web_search_key_hint">Tùy chọn. Cho phép AI kiểm chứng thông tin trên web. Để trống để tắt tìm kiếm web.</string>
+    <string name="settings_show_web_search_key">Hiện khóa Firecrawl</string>
+    <string name="settings_hide_web_search_key">Ẩn khóa Firecrawl</string>
+    <string name="settings_test_web_search_key">Kiểm tra khóa Firecrawl</string>
     <string name="decimal_separator">,</string>
     <string name="content_language_tag">vi</string>
 </resources>

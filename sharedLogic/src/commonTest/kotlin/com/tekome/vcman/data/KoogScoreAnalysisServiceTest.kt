@@ -21,7 +21,10 @@ class KoogScoreAnalysisServiceTest {
 
     private val fakePromptBuilder =
         object : PromptBuilder {
-            override fun buildSystemPrompt(rubric: RubricInput): String = "SYSTEM:${rubric.title}"
+            override fun buildSystemPrompt(
+                rubric: RubricInput,
+                webSearchAvailable: Boolean,
+            ): String = "SYSTEM:${rubric.title}:search=$webSearchAvailable"
 
             override fun buildUserPrompt(
                 subjectQuery: String,
@@ -194,7 +197,94 @@ class KoogScoreAnalysisServiceTest {
             )
 
             assertEquals(1, capturedTools?.size)
-            assertIs<FirecrawlSearchTool>(capturedTools!!.first())
+            assertIs<RecordingWebSearchTool>(capturedTools!!.first())
+        }
+
+    private fun searchingService(
+        search: WebSearchTool,
+        afterSearch: () -> String = { validEnvelope },
+    ) = serviceWith(
+        resolver = {
+            LlmChat { _, _, tools ->
+                tools.forEach { tool -> runCatching { tool.search("acme") } }
+                afterSearch()
+            }
+        },
+        searchToolResolver = { search },
+    )
+
+    private val firecrawlConfig = requestConfig(searchTool = WebSearchToolConfig.Firecrawl(ApiKey("firecrawl-key")))
+
+    @Test
+    fun analyze_tellsPromptBuilderWhetherSearchIsAttached() =
+        runTest {
+            var capturedSystem: String? = null
+            val service =
+                serviceWith(
+                    resolver = {
+                        LlmChat { system, _, _ ->
+                            capturedSystem = system
+                            validEnvelope
+                        }
+                    },
+                    searchToolResolver = { WebSearchTool { emptyList() } },
+                )
+
+            service.analyze(rubric, "Acme", firecrawlConfig, LanguageTag.Default)
+
+            assertEquals("SYSTEM:Rubric:search=true", capturedSystem)
+        }
+
+    @Test
+    fun analyze_withoutSearchToolReportIsNotFlaggedSkipped() =
+        runTest {
+            val result = serviceWith({ LlmChat { _, _, _ -> validEnvelope } }).analyze(rubric, "Acme", requestConfig(), LanguageTag.Default)
+
+            assertEquals(false, result.getOrThrow().webSearchSkipped)
+        }
+
+    @Test
+    fun analyze_unavailableSearchStillSucceedsAndFlagsReport() =
+        runTest {
+            val service = searchingService(WebSearchTool { throw WebSearchUnavailableException(503) })
+
+            val result = service.analyze(rubric, "Acme", firecrawlConfig, LanguageTag.Default)
+
+            assertEquals(true, result.getOrThrow().webSearchSkipped)
+        }
+
+    @Test
+    fun analyze_successfulSearchDoesNotFlagReport() =
+        runTest {
+            val service = searchingService(WebSearchTool { emptyList() })
+
+            val result = service.analyze(rubric, "Acme", firecrawlConfig, LanguageTag.Default)
+
+            assertEquals(false, result.getOrThrow().webSearchSkipped)
+        }
+
+    @Test
+    fun analyze_rejectedKeyFailsEvenWhenTheAgentStillAnswers() =
+        runTest {
+            val service = searchingService(WebSearchTool { throw AnalysisException(AnalysisError.WebSearchRejected(402)) })
+
+            val result = service.analyze(rubric, "Acme", firecrawlConfig, LanguageTag.Default)
+
+            assertEquals(AnalysisError.WebSearchRejected(402), (result.exceptionOrNull() as AnalysisException).error)
+        }
+
+    @Test
+    fun analyze_rejectedKeyWinsOverTheAgentFailureItCaused() =
+        runTest {
+            val service =
+                searchingService(
+                    search = WebSearchTool { throw AnalysisException(AnalysisError.WebSearchRejected(401)) },
+                    afterSearch = { throw IOException("agent gave up") },
+                )
+
+            val result = service.analyze(rubric, "Acme", firecrawlConfig, LanguageTag.Default)
+
+            assertEquals(AnalysisError.WebSearchRejected(401), (result.exceptionOrNull() as AnalysisException).error)
         }
 
     @Test
@@ -212,7 +302,7 @@ class KoogScoreAnalysisServiceTest {
 
             service.analyze(rubric, "Acme Query", requestConfig(), LanguageTag.parse("vi"))
 
-            assertEquals("SYSTEM:Rubric", capturedSystem)
+            assertEquals("SYSTEM:Rubric:search=false", capturedSystem)
             assertEquals("USER:vi:Acme Query", capturedUser)
         }
 }

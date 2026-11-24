@@ -141,8 +141,10 @@ class LocalizedUiTest : ComposeUiTestRunner() {
                 onApiKeyChange = {},
                 onBaseUrlChange = {},
                 onModelChange = {},
+                onWebSearchKeyChange = {},
                 onSave = {},
                 onTestConnection = {},
+                onTestWebSearchKey = {},
                 onBack = {},
             )
         }

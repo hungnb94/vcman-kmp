@@ -122,8 +122,10 @@ internal fun AppContent(
                 onApiKeyChange = settingsViewModel::updateApiKey,
                 onBaseUrlChange = settingsViewModel::updateBaseUrl,
                 onModelChange = settingsViewModel::updateModel,
+                onWebSearchKeyChange = settingsViewModel::updateWebSearchKey,
                 onSave = settingsViewModel::save,
                 onTestConnection = settingsViewModel::testConnection,
+                onTestWebSearchKey = settingsViewModel::testWebSearchKey,
                 onBack = { navController.popBackStack() },
             )
         }

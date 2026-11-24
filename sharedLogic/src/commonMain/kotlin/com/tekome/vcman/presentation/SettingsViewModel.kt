@@ -9,6 +9,8 @@ import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.LlmSettings
 import com.tekome.vcman.data.SettingsFieldError
 import com.tekome.vcman.data.SettingsRepository
+import com.tekome.vcman.data.WebSearchKeyTester
+import com.tekome.vcman.data.WebSearchSettings
 import com.tekome.vcman.data.isInsecureRemote
 import com.tekome.vcman.data.validate
 import dev.zacsweers.metro.AppScope
@@ -80,8 +82,15 @@ data class SettingsUiState(
     val errors: Set<SettingsFieldError> = emptySet(),
     val saveStatus: SaveStatus = SaveStatus.Idle,
     val connection: ConnectionTestState = ConnectionTestState.Idle,
+    val webSearchKey: ApiKey = ApiKey(""),
+    val webSearchTest: ConnectionTestState = ConnectionTestState.Idle,
 ) {
     val insecureWarning: Boolean get() = isInsecureRemote(form.baseUrl)
+
+    val canTestWebSearchKey: Boolean
+        get() = loaded && webSearchKey.value.isNotBlank() && webSearchTest != ConnectionTestState.Testing
+
+    internal fun webSearchSettings(): WebSearchSettings = WebSearchSettings(ApiKey(webSearchKey.value.trim()))
 }
 
 @Inject
@@ -90,13 +99,19 @@ data class SettingsUiState(
 class SettingsViewModel(
     private val repository: SettingsRepository,
     private val connectionTester: ConnectionTester,
+    webSearchKeyTester: WebSearchKeyTester,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
+    private val webSearchKeyCheck =
+        KeyCheck(viewModelScope, webSearchKeyTester) { test -> _uiState.update { it.copy(webSearchTest = test) } }
+
     private var errorsVisible = false
 
     private var edited = false
+
+    private var webSearchKeyEdited = false
 
     private var testJob: Job? = null
 
@@ -110,6 +125,15 @@ class SettingsViewModel(
                 } catch (_: Exception) {
                     null
                 }
+            val savedWebSearch =
+                try {
+                    repository.loadWebSearch()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    WebSearchSettings.Off
+                }
+            if (!webSearchKeyEdited) _uiState.update { it.copy(webSearchKey = savedWebSearch.firecrawlKey) }
             _uiState.update {
                 // A slow load must not overwrite what the user has already typed.
                 if (edited) {
@@ -135,15 +159,29 @@ class SettingsViewModel(
 
     fun updateModel(value: String) = edit { it.copy(model = value) }
 
+    fun updateWebSearchKey(value: String) {
+        webSearchKeyEdited = true
+        webSearchKeyCheck.reset()
+        _uiState.update { it.copy(webSearchKey = ApiKey(value), saveStatus = SaveStatus.Idle) }
+    }
+
+    fun testWebSearchKey() {
+        val state = _uiState.value
+        if (!state.canTestWebSearchKey) return
+        webSearchKeyCheck.run(state.webSearchSettings().firecrawlKey)
+    }
+
     fun save() {
         if (!_uiState.value.loaded) return
         val settings = validatedSettings() ?: return
         if (_uiState.value.saveStatus == SaveStatus.Saving) return
+        val webSearch = _uiState.value.webSearchSettings()
         _uiState.update { it.copy(saveStatus = SaveStatus.Saving) }
         viewModelScope.launch {
             val status =
                 try {
                     repository.save(settings)
+                    repository.saveWebSearch(webSearch)
                     SaveStatus.Saved
                 } catch (e: CancellationException) {
                     throw e
@@ -151,7 +189,9 @@ class SettingsViewModel(
                     SaveStatus.Failed
                 }
             // An edit made while saving already reset the status; do not claim the newer form was saved.
-            _uiState.update { if (it.form.toSettings() == settings) it.copy(saveStatus = status) else it }
+            _uiState.update {
+                if (it.form.toSettings() == settings && it.webSearchSettings() == webSearch) it.copy(saveStatus = status) else it
+            }
         }
     }
 

@@ -13,6 +13,8 @@ import vcman.sharedui.generated.resources.error_missing_fields
 import vcman.sharedui.generated.resources.error_network
 import vcman.sharedui.generated.resources.error_not_configured
 import vcman.sharedui.generated.resources.error_unexpected
+import vcman.sharedui.generated.resources.error_web_search_key_rejected
+import vcman.sharedui.generated.resources.error_web_search_no_credits
 import vcman.sharedui.generated.resources.setup_rubric_text_label
 import vcman.sharedui.generated.resources.setup_rubric_title_label
 import vcman.sharedui.generated.resources.setup_subject_label
@@ -35,8 +37,15 @@ internal fun AnalysisFailure.asText(): String =
 
         is AnalysisFailure.AmbiguousSubject -> stringResource(Res.string.error_ambiguous_subject, explanation)
 
+        is AnalysisFailure.WebSearchRejected ->
+            stringResource(
+                if (httpStatus == HTTP_PAYMENT_REQUIRED) Res.string.error_web_search_no_credits else Res.string.error_web_search_key_rejected,
+            )
+
         AnalysisFailure.Unexpected -> stringResource(Res.string.error_unexpected)
     }
+
+private const val HTTP_PAYMENT_REQUIRED = 402
 
 /** Localized field name; reuses the setup-screen labels so each term has a single source. */
 @Composable

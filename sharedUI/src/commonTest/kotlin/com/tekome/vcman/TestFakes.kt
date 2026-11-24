@@ -5,16 +5,24 @@ import com.tekome.vcman.data.ApiKey
 import com.tekome.vcman.data.LlmProviderType
 import com.tekome.vcman.data.LlmSettings
 import com.tekome.vcman.data.SettingsRepository
+import com.tekome.vcman.data.WebSearchSettings
 import dev.zacsweers.metrox.viewmodel.MetroViewModelFactory
 import kotlin.reflect.KClass
 
 internal class InMemorySettingsRepository(
     var settings: LlmSettings? = null,
+    var webSearch: WebSearchSettings = WebSearchSettings.Off,
 ) : SettingsRepository {
     override suspend fun load(): LlmSettings? = settings
 
     override suspend fun save(settings: LlmSettings) {
         this.settings = settings
+    }
+
+    override suspend fun loadWebSearch(): WebSearchSettings = webSearch
+
+    override suspend fun saveWebSearch(settings: WebSearchSettings) {
+        webSearch = settings
     }
 }
 
